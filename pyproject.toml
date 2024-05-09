@@ -9,6 +9,17 @@ packages = [{include = "child_lab_framework"}]
 [tool.poetry.dependencies]
 python = "^3.9"
 
+[tool.poetry.group.dev.dependencies]
+poethepoet = "^0.26.1"
+black = "^24.4.2"
+pylint = "^3.1.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poe.tasks]
+format = "black ."
+
+[tool.poe.tasks.lint]
+shell = "find child_lab_framework -name '*.py' | xargs pylint"
