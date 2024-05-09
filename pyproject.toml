@@ -20,6 +20,12 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poe.tasks]
 format = "black ."
+build_whl = "poetry build"
+install_whl = "pip install --force-reinstall dist/*.whl"
+prepare = [
+    "build_whl",
+    "install_whl",
+]
 
 [tool.poe.tasks.lint]
 shell = "find child_lab_framework -name '*.py' | xargs pylint"

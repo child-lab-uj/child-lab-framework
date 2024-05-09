@@ -18,4 +18,7 @@ $ poe format
 # Lint code
 $ poe lint
 
+# Build and install wheel in the venv
+$ poe prepare
+
 ```
