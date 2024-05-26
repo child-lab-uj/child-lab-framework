@@ -1,7 +1,7 @@
 from os import listdir
 import subprocess
 
-from child_lab_framework import WIDGETS_DIR, CLFException
+from child_lab_framework.utils import WIDGETS_DIR, CLFException
 from child_lab_framework.docker.client import get_default_client
 from child_lab_framework.logging import Logger
 
@@ -19,7 +19,7 @@ def build(widget_name: str) -> str:
     widget_path = WIDGETS_DIR / widget_name
 
     rev = (
-        subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=widget_path)
+        subprocess.check_output("git rev-parse HEAD", shell=True, cwd=widget_path)
         .strip()
         .decode("utf-8")
     )

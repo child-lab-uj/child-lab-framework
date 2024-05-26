@@ -1,4 +1,3 @@
-import asyncio
 from websockets.sync.client import connect
 
 from child_lab_framework.docker import run
@@ -10,7 +9,7 @@ PORT = 15_001
 class TestWidget():
 
     def __init__(self):
-        self.__container_handle = run(NAME, PORT, ADDRESS)
+        self.__close_handle = run(NAME, PORT, ADDRESS)
 
     def __call__(self):
         from time import sleep
@@ -22,12 +21,12 @@ class TestWidget():
             return message
     
     def __del__(self):
-        self.__container_handle()
+        self.__close_handle()
 
 if __name__ == "__main__":
     mock_model = TestWidget()
 
-    print(mock_model())
+    for i in range(5):
+        print("Response:", mock_model())
 
-    from time import sleep
-    sleep(2)
+    del mock_model
