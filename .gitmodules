@@ -1,0 +1,3 @@
+[submodule "widgets/test-widget"]
+	path = widgets/test-widget
+	url = git@github.com:AGH-Psychological-Computer-Vision/test-widget.git
