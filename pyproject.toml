@@ -4,12 +4,13 @@ version = "0.1.0"
 description = "UJ ChildLab Computer Vision project"
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
-packages = [{include = "child_lab_framework"}]
+packages = [{ include = "child_lab_framework" }]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.12"
 docker = "^7.1.0"
 websockets = "^12.0"
+opencv-python = "^4.10.0.84"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"
@@ -24,10 +25,7 @@ build-backend = "poetry.core.masonry.api"
 format = "black ."
 build_whl = "poetry build"
 install_whl = "pip install --force-reinstall dist/*.whl"
-prepare = [
-    "build_whl",
-    "install_whl",
-]
+prepare = ["build_whl", "install_whl"]
 
 [tool.poe.tasks.lint]
 shell = "find child_lab_framework -name '*.py' | xargs pylint"
