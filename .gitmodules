@@ -1,1 +1,4 @@
 
+[submodule "widget/test-widget"]
+	path = widget/test-widget
+	url = git@github.com:child-lab-uj/test-widget.git
