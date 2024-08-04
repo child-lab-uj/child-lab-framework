@@ -1,9 +1,9 @@
 from os import listdir
 import subprocess
 
-from child_lab_framework.utils import WIDGETS_DIR, CLFException
-from child_lab_framework.docker.client import get_default_client
-from child_lab_framework.logging import Logger
+from ..util import WIDGETS_DIR, CLFException
+from .client import get_default_client
+from ..logging import Logger
 
 
 # Builds a docker widget if not already built, returns its tag.
@@ -28,7 +28,7 @@ def build(widget_name: str) -> str:
 
     expected_tag = f"{widget_name}:{rev}"
 
-    image_tags: list[str] = list(
+    image_tags: list[str] = list(  # pyright: ignore
         map(
             lambda image: image.tags[0] if image.tags else None,
             docker_client.images.list(),
