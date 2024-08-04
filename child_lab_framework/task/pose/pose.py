@@ -73,7 +73,7 @@ class Estimator:
         self.threshold = threshold
 
         self.detector = ultralytics.YOLO(
-            model='models/yolov8x-pose-p6.pt',
+            model=self.MODEL_PATH,
             task='pose',
             verbose=False
         )
