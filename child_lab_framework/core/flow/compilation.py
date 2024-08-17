@@ -11,7 +11,8 @@ def stream_identifier_bindings(components: Iterable[str], tabs: int) -> str:
     indent = '\t' * tabs
 
     return '\n'.join(
-        f'{indent}{name}_fiber = components[\'{name}\'].stream()'
+        f'{indent}{name}_fiber = components[\'{name}\'].stream()\n' +
+        f'{indent}await {name}_fiber.asend(None)'
         for name in components
     )
 
@@ -20,7 +21,7 @@ def checked_inputs(inputs: list[str], tabs: int) -> list[str]:
     indent = '\t' * tabs
 
     return [
-        f'{indent}({name}_value := {name}_fiber.send(None)) is not None'
+        f'{indent}({name}_value := await {name}_fiber.asend(None)) is not None'
         for name in inputs
     ]
 
@@ -101,7 +102,7 @@ def main_loop_body(inputs: list[str], outputs: list[str], dependencies: dict[str
     indent = '\t' * tabs
 
     sends = '\n'.join(
-        f'{indent}{name}_value = {name}_fiber.send({packet_of_dependencies_to_send(name, dependencies[name])})'
+        f'{indent}{name}_value = await {name}_fiber.asend({packet_of_dependencies_to_send(name, dependencies[name])})'
         for name in ordered_components(
             inputs,
             outputs,
@@ -120,8 +121,8 @@ def compiled_flow(
     *,
     function_name: str = '__step'
 ) -> CodeType:
-    header = f'def {function_name}(components: dict[str, Component]) -> Fiber[None, bool]:'
-    ending = f'\timport itertools\n\tyield from itertools.repeat(True)'
+    header = f'async def {function_name}(components: dict[str, Component]) -> Fiber[None, bool]:'
+    ending = f'\twhile True: yield True'
 
     source_code = '\n'.join((
         header,

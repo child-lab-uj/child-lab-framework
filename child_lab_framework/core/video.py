@@ -5,11 +5,12 @@ import typing
 from cv2.typing import MatLike
 import numpy as np
 import cv2
+from itertools import repeat
 
 from ..typing.stream import Fiber
 from ..typing.video import Frame
 from ..typing.array import IntArray2, FloatArray2
-from .stream import autostart, nones
+from .stream import autostart
 
 
 class Format(Enum):
@@ -57,7 +58,7 @@ class Reader:
     def __del__(self) -> None:
         self.decoder.release()
 
-    def stream(self) -> Fiber[None, list[Frame] | None]:
+    async def stream(self) -> Fiber[None, list[Frame] | None]:
         decoder = self.decoder
         batch_size = self.batch_size
 
@@ -80,7 +81,8 @@ class Reader:
 
             yield batch
 
-        yield from nones()
+        while True:
+            yield None
 
 
 class Writer:
@@ -108,7 +110,7 @@ class Writer:
         self.encoder.release()
 
     @autostart
-    def stream(self) -> Fiber[list[Frame] | None, None]:
+    async def stream(self) -> Fiber[list[Frame] | None, None]:
         while True:
             match (yield):
                 case list(frames):

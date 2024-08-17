@@ -2,11 +2,12 @@ from collections.abc import Generator
 from dataclasses import dataclass
 from enum import Enum, IntEnum, auto
 from typing import Self
-
 import cv2
 import numpy as np
-import mediapipe as mp
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
+import mediapipe as mp
 from mediapipe.tasks.python.vision.core.vision_task_running_mode import VisionTaskRunningMode
 from mediapipe.tasks.python.components.containers.landmark import NormalizedLandmark
 from mediapipe.tasks.python.vision import RunningMode
@@ -96,8 +97,16 @@ class Estimator:
     detection_threshold: float
     tracking_threshold: float
     detector: FaceLandmarker
+    executor: ThreadPoolExecutor
 
-    def __init__(self, *, max_results: int, detection_threshold: float, tracking_threshold: float) -> None:
+    def __init__(
+        self,
+        executor: ThreadPoolExecutor,
+        *,
+        max_results: int,
+        detection_threshold: float,
+        tracking_threshold: float
+    ) -> None:
         self.max_results = max_results
         self.detection_threshold = detection_threshold
         self.tracking_treshold = tracking_threshold
@@ -113,6 +122,7 @@ class Estimator:
         )
 
         self.detector = FaceLandmarker.create_from_options(options)
+        self.executor = executor
 
     def __detect(self, frame: Frame, boxes: pose.BatchedBoxes) -> Result | None:
         humans = cropped(frame, boxes)
@@ -148,19 +158,25 @@ class Estimator:
         return Result(imputed_landmarks, imputed_matrices)
 
     @autostart
-    def stream(self) -> Fiber[tuple[list[Frame] | None, list[pose.Result | None] | None], list[Result | None] | None]:
+    async def stream(self) -> Fiber[tuple[list[Frame] | None, list[pose.Result | None] | None], list[Result | None] | None]:
+        executor = self.executor
+        loop = asyncio.get_running_loop()
+
         results: list[Result | None] | None = None
 
         while True:
             match (yield results):
                 case list(frames), list(poses):
-                    results = [
-                        self.__detect(frame, frame_poses.boxes)
-                        if frame_poses is not None
-                        else None
-                        for frame, frame_poses
-                        in zip(frames, poses)
-                    ]
+                    results = await loop.run_in_executor(
+                        executor,
+                        lambda: [
+                            self.__detect(frame, frame_poses.boxes)
+                            if frame_poses is not None
+                            else None
+                            for frame, frame_poses
+                            in zip(frames, poses)
+                        ]
+                    )
 
                 case _:
                     results = None

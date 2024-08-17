@@ -4,6 +4,8 @@ import numpy as np
 from collections.abc import Generator, Iterable
 import typing
 from typing import Literal
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from ...core.stream import autostart
 from ...core.video import Perspective, Properties
@@ -50,12 +52,16 @@ class Estimator:
     window_left_properties: Properties
     window_right_properties: Properties
 
+    executor: ThreadPoolExecutor
+
     def __init__(
         self,
+        executor: ThreadPoolExecutor,
         ceiling_properties: Properties,
         window_left_properties: Properties,
         window_right_properties: Properties
     ) -> None:
+        self.executor = executor
         self.ceiling_properties = ceiling_properties
         self.window_left_properties = window_left_properties
         self.window_right_properties = window_right_properties
@@ -120,7 +126,10 @@ class Estimator:
 
     # NOTE: heuristic idea: actors seen from right and left are in reversed lexicographic order
     @autostart
-    def stream(self) -> Fiber[Input | None, list[Result | None] | None]:
+    async def stream(self) -> Fiber[Input | None, list[Result | None] | None]:
+        executor = self.executor
+        loop = asyncio.get_running_loop()
+
         results: list[Result | None] | None = None
 
         while True:
@@ -132,12 +141,15 @@ class Estimator:
                     window_left_face,
                     window_right_face
                 ):
-                    results = self.__predict(
-                        ceiling_pose,
-                        window_left_pose,
-                        window_right_pose,
-                        window_left_face,
-                        window_right_face
+                    results = await loop.run_in_executor(
+                        executor,
+                        lambda: self.__predict(
+                            ceiling_pose,
+                            window_left_pose,
+                            window_right_pose,
+                            window_left_face,
+                            window_right_face
+                        )
                     )
 
                 case _:

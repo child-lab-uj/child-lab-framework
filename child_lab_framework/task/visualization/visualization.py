@@ -3,6 +3,8 @@ from typing import Literal
 import typing
 import cv2
 import numpy as np
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from ..pose.keypoint import YOLO_SKELETON
 from ...core.stream import autostart
@@ -30,7 +32,9 @@ class Visualizer:
 
     confidence_threshold: float
 
-    def __init__(self, *, confidence_threshold: float) -> None:
+    executor: ThreadPoolExecutor
+
+    def __init__(self, executor: ThreadPoolExecutor, *, confidence_threshold: float) -> None:
         self.confidence_threshold = confidence_threshold
 
     def __draw_skeleton_and_joints(self, frame: Frame, result: pose.Result) -> Frame:
@@ -83,7 +87,7 @@ class Visualizer:
         return annotated_frame
 
     @autostart
-    def stream(self) -> Fiber[Input, list[Frame] | None]:
+    async def stream(self) -> Fiber[Input, list[Frame] | None]:
         annotated_frames: list[Frame] | None = None
 
         while True:

@@ -1,7 +1,8 @@
 from typing import TypeVar
-from collections.abc import Generator
+from collections.abc import Generator, AsyncGenerator
 
 Output = TypeVar("Output", covariant=True)
 Input = TypeVar("Input", contravariant=True)
 
-type Fiber[Input, Output] = Generator[Output, Input, None]
+type SyncFiber[Input, Output] = Generator[Output, Input, None]
+type Fiber[Input, Output] = AsyncGenerator[Output, Input]

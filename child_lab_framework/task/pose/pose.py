@@ -8,6 +8,8 @@ import numpy as np
 import torch
 import ultralytics
 from ultralytics.engine import results as yolo
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from ...util import MODELS_DIR
 from ...core.stream import autostart
@@ -75,11 +77,13 @@ class Estimator:
     max_detections: int
     threshold: float  # NOTE: currently unused, but may remain for future use
     detector: ultralytics.YOLO
+    executor: ThreadPoolExecutor
 
-    def __init__(self, *, max_detections: int, threshold: float) -> None:
+    def __init__(self, executor: ThreadPoolExecutor, *, max_detections: int, threshold: float) -> None:
         self.max_detections = max_detections
         self.threshold = threshold
 
+        self.executor = executor
         self.detector = ultralytics.YOLO(
             model=self.MODEL_PATH,
             task='pose',
@@ -122,14 +126,21 @@ class Estimator:
         )
 
     @autostart
-    def stream(self) -> Fiber[list[Frame] | None, list[Result | None] | None]:
+    async def stream(self) -> Fiber[list[Frame] | None, list[Result | None] | None]:
         detector = self.detector
+        executor = self.executor
+        loop = asyncio.get_running_loop()
+
         results: list[Result | None] | None = None
 
         while True:
             match (yield results):
                 case list(frames):
-                    detections = detector.predict(frames, stream=True, verbose=False)
+                    detections = await loop.run_in_executor(
+                        executor,
+                        lambda: detector.predict(frames, stream=False, verbose=False)
+                    )
+
                     results = [self.__interpret(detection) for detection in detections]
 
                 case _:

@@ -29,7 +29,7 @@ class Machinery:
         self.dependencies = dict(dependencies)
         # TODO: graph computations: DAG check, optimization? etc.
 
-        self.streams = self.__open_streams()
+        # self.streams = self.__open_streams()
         self.flow_controller = self.__compile()(self.components)
 
     def __open_streams(self) -> dict[str, Fiber]:
@@ -48,15 +48,15 @@ class Machinery:
 
         return locals()['__step']
 
-    def run(self) -> None:
+    async def run(self) -> None:
         controller = self.flow_controller
-        controller.send(None)
+        await controller.asend(None)
 
         step = 0
         start = time.time()
 
         while True:
-            status = controller.send(None)
+            status = await controller.asend(None)
 
             step += 1
             elapsed = time.time() - start

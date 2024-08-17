@@ -4,6 +4,7 @@ from typing import Literal
 import numpy as np
 import onnxruntime as onnx
 import cv2
+import mediapipe as mp
 
 from ...core.video import Frame
 from ...core import image
