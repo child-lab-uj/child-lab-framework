@@ -1,4 +1,4 @@
-
+from operator import itemgetter
 import typing
 from typing import Any, Callable, Iterable, Literal
 from collections.abc import Generator, Sequence
@@ -12,8 +12,10 @@ from ultralytics.engine import results as yolo
 from ...util import MODELS_DIR
 from ...core.stream import autostart
 from ...core.video import Frame
+from ...core.geometry import area_broadcast
 from ...typing.array import FloatArray1, FloatArray2, FloatArray3
 from ...typing.stream import Fiber
+from .duplication import deduplicated
 
 
 type Box = FloatArray1
@@ -34,6 +36,21 @@ class Result:
     keypoints: BatchedKeypoints
     actors: list[Actor]
 
+    # NOTE heuristic: sitting actors preserve lexicographic order of bounding boxes
+    @staticmethod
+    def __ordered(
+        boxes: BatchedBoxes,
+        keypoints: BatchedKeypoints,
+        actors: list[Actor]
+    ) -> tuple[BatchedBoxes, BatchedKeypoints, list[Actor]]:
+        order = np.lexsort(np.flipud(boxes.T))
+
+        boxes = boxes[order]
+        keypoints = keypoints[order]
+        actors = [actors[i] for i in order]
+
+        return boxes, keypoints, actors
+
     def __init__(
             self,
             n_detections: int,
@@ -42,34 +59,25 @@ class Result:
             actors: list[Actor]
     ) -> None:
         self.n_detections = n_detections
-        self.boxes = typing.cast(BatchedBoxes, boxes.numpy().data)
-        self.keypoints = typing.cast(BatchedKeypoints, keypoints.numpy().data)
-        self.actors = actors
+        (self.boxes, self.keypoints, self.actors) = Result.__ordered(
+            typing.cast(BatchedBoxes, boxes.numpy().data),
+            typing.cast(BatchedKeypoints, keypoints.numpy().data),
+            actors
+        )
 
     def iter(self) -> Iterable[tuple[Actor, Box, Keypoints]]:
         return zip(self.actors, self.boxes, self.keypoints)
 
 
-def __area(rect: torch.Tensor) -> torch.Tensor:
-    width = rect[3] - rect[1]
-    height = rect[2] - rect[0]
-    return width * height
-
-area = typing.cast(
-    Callable[[torch.Tensor], torch.Tensor],
-    torch.vmap(__area, 0)
-)
-
-
 class Estimator:
     MODEL_PATH: str = str(MODELS_DIR / 'yolov8x-pose-p6.pt')
 
-    max_results: int
+    max_detections: int
     threshold: float  # NOTE: currently unused, but may remain for future use
     detector: ultralytics.YOLO
 
-    def __init__(self, *, max_results: int, threshold: float) -> None:
-        self.max_results = max_results
+    def __init__(self, *, max_detections: int, threshold: float) -> None:
+        self.max_detections = max_detections
         self.threshold = threshold
 
         self.detector = ultralytics.YOLO(
@@ -78,7 +86,7 @@ class Estimator:
             verbose=False
         )
 
-    # heuristic: Children have substantially smaller bounding boxes than adults
+    # NOTE heuristic: Children have substantially smaller bounding boxes than adults
     def __detect_child(self, boxes: yolo.Boxes) -> int | None:
         if len(boxes) == 1:
             return None
@@ -87,21 +95,23 @@ class Estimator:
 
         return int(
             torch
-            .argmin(area(boxes_data))
+            .argmin(area_broadcast(boxes_data))
             .item()
         )
 
     def __interpret(self, detections: yolo.Results) -> Result | None:
-        boxes: yolo.Boxes | None = detections.boxes
-        keypoints: yolo.Keypoints | None = detections.keypoints
+        boxes = detections.boxes
+        keypoints = detections.keypoints
 
         if boxes is None or keypoints is None:
             return None
 
+        boxes, keypoints = deduplicated(boxes, keypoints, self.max_detections)
+
         n_detections = len(boxes)
         actors = [Actor.ADULT for _ in range(n_detections)]
 
-        if i := self.__detect_child(boxes):
+        if (i := self.__detect_child(boxes)) is not None:
             actors[i] = Actor.CHILD
 
         return Result(

@@ -14,6 +14,8 @@ opencv-python = "^4.10.0.84"
 ultralytics = "^8.2.72"
 mediapipe = "^0.10.14"
 colorama = "^0.4.6"
+onnxruntime = "^1.18.1"
+numba = "^0.60.0"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"

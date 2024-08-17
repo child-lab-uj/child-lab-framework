@@ -1,1 +1,1 @@
-from .face import Estimator, Result
+from .face import Estimator, Result, Eye

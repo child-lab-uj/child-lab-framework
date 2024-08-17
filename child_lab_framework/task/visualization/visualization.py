@@ -102,7 +102,7 @@ class Visualizer:
 
                         annotated_frames.append(out)
 
-                case list(frames), None:
+                case list(frames), *_:
                     results = frames
 
                 case _:

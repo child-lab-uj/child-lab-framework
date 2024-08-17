@@ -1,13 +1,19 @@
 from dataclasses import dataclass
+from enum import IntEnum
 import numpy as np
-from collections.abc import Generator
-from typing import Literal, Iterable
+from collections.abc import Generator, Iterable
+import typing
+from typing import Literal
 
 from ...core.stream import autostart
+from ...core.video import Perspective, Properties
+from ...core.algebra import normalized, orthogonal, Axis, rotation_matrix
 from .. import pose, face
 from ..pose.keypoint import YoloKeypoint
-from ...typing.array import FloatArray1, FloatArray2
+from ...typing.array import FloatArray1, FloatArray2, FloatArray3
 from ...typing.stream import Fiber
+from . import ceiling_baseline, side_correction
+
 
 # Multi-camera gaze direction estimation without strict algebraic camera models:
 # 1. estimate actor's skeleton on each frame in both cameras
@@ -18,11 +24,13 @@ from ...typing.stream import Fiber
 # 5. Rotate it to the celing camera's space and combine with the ceiling baseline
 
 
-@dataclass
-class Input:
-    ceiling_poses: list[pose.Result | None]
-    side_poses: list[pose.Result | None]
-    faces: list[face.Result | None]
+type Input = tuple[
+    list[pose.Result | None] | None,
+    list[pose.Result | None] | None,
+    list[pose.Result | None] | None,
+    list[face.Result | None] | None,
+    list[face.Result | None] | None,
+]
 
 
 @dataclass
@@ -34,58 +42,103 @@ class Result:
         return zip(self.centres, self.versors)
 
 
-def orthogonal_normal(vecs: FloatArray2) -> FloatArray2:
-    return vecs[:, 1::-1] * np.array([1.0, -1.0], dtype=np.float32)
-
-
 class Estimator:
-    def __init__(self) -> None:
-        ...
+    BASELINE_WEIGHT: float = 0.1
+    CORRECTION_WEIGHT: float = 1.0 - BASELINE_WEIGHT
 
-    # TODO: calculate using pose eye keypoints and fallback to shoulders if eyes were not detected
-    def __ceiling_baseline(self, result: pose.Result) -> Result:
-        left_shoulder: FloatArray2 = result.keypoints[:, YoloKeypoint.LEFT_SHOULDER.value, :]
-        right_shoulder: FloatArray2 = result.keypoints[:, YoloKeypoint.RIGHT_SHOULDER.value, :]
+    ceiling_properties: Properties
+    window_left_properties: Properties
+    window_right_properties: Properties
 
-        centres: FloatArray2 = (left_shoulder + right_shoulder) / 2.0
-        centres[:, -1] = left_shoulder[:, -1] * right_shoulder[:, -1]  # confidence of two keypoints as joint probability
-
-        # convention: shoulder vector goes from left to right ->
-        # versor (calculated as [y, -x]) points to the actor's front
-        versors = orthogonal_normal(right_shoulder - left_shoulder)
-
-        return Result(centres, versors)
-
-    def __rotation_angles(self, ceiling: pose.Result, side: pose.Result) -> FloatArray1:
-        ceiling_shoulders: FloatArray1 = ceiling.keypoints[0, YoloKeypoint.LEFT_SHOULDER, :] - ceiling.keypoints[0, YoloKeypoint.RIGHT_SHOULDER, :]
-        side_shoulders: FloatArray1 = side.keypoints[0, YoloKeypoint.LEFT_SHOULDER, :] - side.keypoints[0, YoloKeypoint.RIGHT_SHOULDER, :]
-
-        angles_from_shoulders_to_cameras = np.arccos(side_shoulders / ceiling_shoulders)
-
-        return angles_from_shoulders_to_cameras * [1.0, 2.0] - np.pi / 2.0
+    def __init__(
+        self,
+        ceiling_properties: Properties,
+        window_left_properties: Properties,
+        window_right_properties: Properties
+    ) -> None:
+        self.ceiling_properties = ceiling_properties
+        self.window_left_properties = window_left_properties
+        self.window_right_properties = window_right_properties
 
     def __predict(
         self,
-        ceiling_pose: pose.Result | None,
-        side_pose: pose.Result | None,
-        face: pose.Result | None
-    ) -> Result:
-        ...
+        ceiling_pose: list[pose.Result | None],
+        window_left_pose: list[pose.Result | None] | None,
+        window_right_pose: list[pose.Result | None] | None,
+        window_left_face: list[face.Result | None] | None,
+        window_right_face: list[face.Result | None] | None
+    ) -> list[Result | None] | None:
+        collective_centres, baseline_vectors = ceiling_baseline.estimate(ceiling_pose, None)
 
-    # TODO: receive other results too (face-based correction etc.)
+        left_corrections = (
+            side_correction.estimate(
+                ceiling_pose,
+                window_left_pose,
+                window_left_face,
+                Perspective.WINDOW_LEFT,
+                self.ceiling_properties,
+                self.window_left_properties
+            )
+            if window_left_pose is not None
+            and window_left_face is not None
+            else None
+        )
+
+        right_corrections = (
+            side_correction.estimate(
+                ceiling_pose,
+                window_right_pose,
+                window_right_face,
+                Perspective.WINDOW_RIGHT,
+                self.ceiling_properties,
+                self.window_right_properties
+            )
+            if window_right_pose is not None
+            and window_right_face is not None
+            else None
+        )
+
+        result_vectors = baseline_vectors
+
+        # print(f'\n{left_corrections = }')
+        # print(f'\n{right_corrections = }\n')
+
+        if left_corrections is not None:
+            result_vectors += left_corrections
+
+        if right_corrections is not None:
+            result_vectors += right_corrections
+
+        return [
+            Result(centres, vectors)
+            for (centres, vectors)
+            in zip(
+                collective_centres,
+                result_vectors
+            )
+        ]
+
+    # NOTE: heuristic idea: actors seen from right and left are in reversed lexicographic order
     @autostart
     def stream(self) -> Fiber[Input | None, list[Result | None] | None]:
         results: list[Result | None] | None = None
 
         while True:
             match (yield results):
-                case Input(ceiling_poses, side_poses, faces):
-                    results = [
-                        self.__ceiling_baseline(result)
-                        if result is not None
-                        else None
-                        for result in ceiling_poses
-                    ]
+                case (
+                    list(ceiling_pose),
+                    window_left_pose,
+                    window_right_pose,
+                    window_left_face,
+                    window_right_face
+                ):
+                    results = self.__predict(
+                        ceiling_pose,
+                        window_left_pose,
+                        window_right_pose,
+                        window_left_face,
+                        window_right_face
+                    )
 
                 case _:
                     results = None

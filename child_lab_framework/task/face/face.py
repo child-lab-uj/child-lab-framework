@@ -1,5 +1,6 @@
 from collections.abc import Generator
 from dataclasses import dataclass
+from enum import Enum, IntEnum, auto
 from typing import Self
 
 import cv2
@@ -24,13 +25,14 @@ from mediapipe.tasks.python.vision.face_landmarker import (
 from ...util import MODELS_DIR
 from .. import pose
 from ..pose import Box
-from ...core.video import Frame
+from ...core.video import Frame, cropped
 from ...core.stream import autostart
+from ...core.sequence import (
+    imputed_with_reference_inplace,
+    imputed_with_zeros_reference_inplace
+)
 from ...typing.stream import Fiber
-from ...typing.array import FloatArray2, FloatArray3
-
-
-type Input = tuple[list[Frame], list[pose.Result]]
+from ...typing.array import FloatArray1, FloatArray2, FloatArray3
 
 
 def to_numpy(self: NormalizedLandmark) -> FloatArray2:
@@ -45,20 +47,46 @@ def to_numpy(self: NormalizedLandmark) -> FloatArray2:
 NormalizedLandmark.to_numpy = to_numpy  # pyright: ignore
 
 
-@dataclass(repr=False)
+def unpacked_and_renormalized(landmarks: list[NormalizedLandmark], landmarks_frame: Frame, result_frame: Frame) -> list[FloatArray1]:
+    result_height, result_width, _ = result_frame.shape
+    source_height, source_width, _ = landmarks_frame.shape
+
+    y_scale = source_height / result_height
+    x_scale = source_width / result_width
+
+    return [
+        np.array([
+            (landmark.x or 0.0) * x_scale,
+            (landmark.y or 0.0) * y_scale,
+            landmark.z or 0.0,
+            landmark.presence or 0.0,
+            landmark.visibility or 0.0
+        ], dtype=np.float32)
+        for landmark in landmarks
+    ]
+
+
+class Eye(Enum):
+    # right, top, left, bottom,
+    Right = [469, 470, 471, 472]
+    Left = [474, 475, 476, 477]
+
+
 class Result:
     landmarks: FloatArray3  # [person, landmark, axis]
     transformation_matrices: FloatArray2
+
+    def __init__(self, landmarks: list[FloatArray2], transformation_matrices: list[FloatArray1]) -> None:
+        self.landmarks = np.stack(landmarks)
+        self.transformation_matrices = np.stack(transformation_matrices)
 
     def __repr__(self) -> str:
         landmarks = self.landmarks
         transformation_matrices = self.transformation_matrices
         return f'Result:\n{landmarks = },\n\n{transformation_matrices = }'
 
-
-def __crop(frame: Frame, box: Box) -> Frame:
-    start_x, start_y, end_x, end_y = box.astype(int)
-    return frame[start_y:end_y, start_x:end_x]
+    def eyes(self, eye: Eye) -> FloatArray3:
+        return self.landmarks[:, [469, 470, 471, 472], :]
 
 
 class Estimator:
@@ -86,41 +114,52 @@ class Estimator:
 
         self.detector = FaceLandmarker.create_from_options(options)
 
-    def __crop(self, frame: Frame, detction: pose.Result) -> list[Frame]:
-        return [
-            __crop(frame, box)
-            for box in detction.boxes
-        ]
+    def __detect(self, frame: Frame, boxes: pose.BatchedBoxes) -> Result | None:
+        humans = cropped(frame, boxes)
 
-    def __simple_detect(self, frame: Frame) -> Result | None:
-        results = self.detector.detect(mp.Image(
-            image_format=mp.ImageFormat.SRGB,
-            data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        ))
+        landmarks: list[FloatArray2 | None] = []
+        matrices: list[FloatArray1 | None] = []
 
-        if len(results.face_landmarks) == 0:
+        for human_image in humans:
+            result = self.detector.detect(mp.Image(
+                image_format=mp.ImageFormat.SRGB,
+                data=cv2.cvtColor(human_image, cv2.COLOR_BGR2RGB)
+            ))
+
+            if len(result.face_landmarks) == 0:
+                landmarks.append(None)
+                matrices.append(None)
+                continue
+
+            first_detection = np.stack(unpacked_and_renormalized(result.face_landmarks[0], human_image, frame))
+            first_matrix = result.facial_transformation_matrixes[0]
+
+            landmarks.append(first_detection)
+            matrices.append(first_matrix)
+
+        imputed_landmarks = imputed_with_zeros_reference_inplace(landmarks)
+        if imputed_landmarks is None:
             return None
 
-        landmarks: FloatArray3 = np.stack([
-            np.stack([landmark.to_numpy() for landmark in person_landmarks])
-            for person_landmarks in results.face_landmarks
-        ])
+        imputed_matrices = imputed_with_zeros_reference_inplace(matrices)
+        if imputed_matrices is None:
+            return None
 
-        matrices: FloatArray2 = np.stack(results.facial_transformation_matrixes)
+        return Result(imputed_landmarks, imputed_matrices)
 
-        return Result(landmarks, matrices)
-
-    # TODO: crop frames using Result
     @autostart
-    def stream(self) -> Fiber[list[Frame] | None, list[Result | None] | None]:
+    def stream(self) -> Fiber[tuple[list[Frame] | None, list[pose.Result | None] | None], list[Result | None] | None]:
         results: list[Result | None] | None = None
 
         while True:
             match (yield results):
-                case list(frames):
+                case list(frames), list(poses):
                     results = [
-                        self.__simple_detect(frame)
-                        for frame in frames
+                        self.__detect(frame, frame_poses.boxes)
+                        if frame_poses is not None
+                        else None
+                        for frame, frame_poses
+                        in zip(frames, poses)
                     ]
 
                 case _:

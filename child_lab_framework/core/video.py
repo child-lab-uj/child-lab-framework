@@ -8,6 +8,7 @@ import cv2
 
 from ..typing.stream import Fiber
 from ..typing.video import Frame
+from ..typing.array import IntArray2, FloatArray2
 from .stream import autostart, nones
 
 
@@ -107,7 +108,7 @@ class Writer:
         self.encoder.release()
 
     @autostart
-    def stream(self) -> Fiber[None, list[Frame] | None]:
+    def stream(self) -> Fiber[list[Frame] | None, None]:
         while True:
             match (yield):
                 case list(frames):
@@ -116,3 +117,14 @@ class Writer:
 
                 case None:
                     continue
+
+
+def cropped(frame: Frame, boxes: FloatArray2) -> list[Frame]:
+    boxes_truncated: IntArray2 = boxes.astype(np.int32)
+
+    crops = [
+        frame[box[0]:box[2], box[1]:box[3]]
+        for box in list(boxes_truncated)
+    ]
+
+    return crops

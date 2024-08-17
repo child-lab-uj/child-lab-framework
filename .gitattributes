@@ -1,3 +1,5 @@
 *.ipynb linguist-language=Python
 model/face_landmarker.task filter=lfs diff=lfs merge=lfs -text
 model/yolov8x-pose-p6.pt filter=lfs diff=lfs merge=lfs -text
+model/metric3d-vit-small.onnx filter=lfs diff=lfs merge=lfs -text
+model/yolov8x-pose-p6.onnx filter=lfs diff=lfs merge=lfs -text
