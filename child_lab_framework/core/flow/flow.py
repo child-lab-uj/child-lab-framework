@@ -16,6 +16,7 @@ type ComponentDefinition = tuple[str, Component] | tuple[str, Component, str] | 
 class Machinery:
     components: dict[str, Component]
     dependencies: nx.DiGraph
+    flow: nx.DiGraph
     flow_controller: Fiber[None, bool]
 
     def __init__(
