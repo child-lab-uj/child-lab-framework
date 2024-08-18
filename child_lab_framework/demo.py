@@ -135,41 +135,21 @@ async def main() -> None:
         output_format=Format.MP4
     )
 
-    machinery = Machinery(
-        components=[
-            ('ceiling_reader', ceiling_reader),
-            ('window_left_reader', window_left_reader),
-            ('window_right_reader', window_right_reader),
-            ('ceiling_pose', ceiling_pose_estimator),
-            ('window_left_pose', window_left_pose_estimator),
-            ('window_right_pose', window_right_pose_estimator),
-            ('window_left_face', window_left_face_estimator),
-            ('window_right_face', window_right_face_estimator),
-            ('gaze', gaze_estimator),
-            ('visualizer', visualizer),
-            ('writer', writer)
-        ],
-        inputs=[
-            'ceiling_reader',
-            'window_left_reader',
-            'window_right_reader',
-        ],
-        outputs=[
-            'writer'
-        ],
-        dependencies={
-            'ceiling_pose': ('ceiling_reader',),
-            'window_left_pose': ('window_left_reader',),
-            'window_right_pose': ('window_right_reader',),
-            'window_left_face': ('window_left_reader',),
-            'window_right_face': ('window_right_reader',),
-            'gaze': (
-                'ceiling_pose','window_left_pose', 'window_right_pose',
-                'window_left_face', 'window_right_face'
-            ),
-            'visualizer': ('ceiling_reader', 'ceiling_pose', 'gaze'),
-            'writer': ('visualizer',)
-        }
-    )
+    machinery=Machinery([
+        ('ceiling_reader', ceiling_reader),
+        ('window_left_reader', window_left_reader),
+        ('window_right_reader', window_right_reader),
+        ('ceiling_pose', ceiling_pose_estimator, 'ceiling_reader'),
+        ('window_left_pose', window_left_pose_estimator, 'window_left_reader'),
+        ('window_right_pose', window_right_pose_estimator, 'window_right_reader'),
+        ('window_left_face', window_left_face_estimator, 'window_left_reader'),
+        ('window_right_face', window_right_face_estimator, 'window_right_reader'),
+        ('gaze', gaze_estimator, (
+            'ceiling_pose','window_left_pose', 'window_right_pose',
+            'window_left_face', 'window_right_face'
+        )),
+        ('visualizer', visualizer, ('ceiling_reader', 'ceiling_pose', 'gaze')),
+        ('writer', writer, 'visualizer')
+    ])
 
     await machinery.run()

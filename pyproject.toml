@@ -16,6 +16,7 @@ mediapipe = "^0.10.14"
 colorama = "^0.4.6"
 onnxruntime = "^1.18.1"
 numba = "^0.60.0"
+networkx = "^3.3"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"

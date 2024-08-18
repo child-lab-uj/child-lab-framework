@@ -1,54 +1,54 @@
 from collections.abc import Iterable, Mapping
+from operator import itemgetter
 import time
 import sys
 from typing import Any, Callable
+import networkx as nx
 
 from ...typing.flow import Component
 from ...typing.stream import Fiber
 from .compilation import compiled_flow
 
 
+type ComponentDefinition = tuple[str, Component] | tuple[str, Component, str] | tuple[str, Component, tuple[str, ...]]
+
+
 class Machinery:
     components: dict[str, Component]
-    streams: dict[str, Fiber]
-    inputs: list[str]
-    outputs: list[str]
-    dependencies: dict[str, tuple[str, ...]]
+    dependencies: nx.DiGraph
     flow_controller: Fiber[None, bool]
 
     def __init__(
         self,
-        components: Iterable[tuple[str, Component]],
-        inputs: Iterable[str],
-        outputs: Iterable[str],
-        dependencies: Mapping[str, tuple[str, ...]]
+        definitions: list[ComponentDefinition],
     ) -> None:
-        self.components = dict(components)
-        self.inputs = list(inputs)
-        self.outputs = list(outputs)
-        self.dependencies = dict(dependencies)
-        # TODO: graph computations: DAG check, optimization? etc.
-
-        # self.streams = self.__open_streams()
+        self.dependencies = self.__build_dependencies(definitions)
+        self.flow = self.dependencies.reverse()
+        self.components = dict((name, component) for name, component, *_ in definitions)
         self.flow_controller = self.__compile()(self.components)
 
-    def __open_streams(self) -> dict[str, Fiber]:
-        return {
-            name: component.stream()
-            for name, component in self.components.items()
-        }
+    def __build_dependencies(self, definitions: list[ComponentDefinition]) -> nx.DiGraph:
+        dependencies: dict[str, tuple[str, ...]] = dict()
+
+        for definition in definitions:
+            match definition:
+                case name, _, str(dependency):
+                    dependencies[name] = (dependency,)
+
+                case name, _, tuple(deps):
+                    dependencies[name] = deps
+
+        graph = nx.DiGraph(dependencies)  # pyright: ignore
+        assert nx.is_directed_acyclic_graph(graph)  # TODO: Throw a proper exception
+
+        return graph
 
     def __compile(self) -> Callable[[dict[str, Component]], Fiber[None, bool]]:
-        exec(compiled_flow(
-            self.components.keys(),
-            self.inputs,
-            self.outputs,
-            self.dependencies,
-        ))
-
+        exec(compiled_flow(self.flow, self.dependencies, function_name='__step'))
         return locals()['__step']
 
     async def run(self) -> None:
+        return
         controller = self.flow_controller
         await controller.asend(None)
 

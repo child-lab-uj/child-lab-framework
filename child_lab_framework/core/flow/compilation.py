@@ -1,7 +1,8 @@
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Generator
 from types import CodeType
 from typing import Callable, TypeVar
 from textwrap import dedent
+import networkx as nx
 
 from ...typing.stream import Fiber
 from ...typing.flow import Component
@@ -17,118 +18,60 @@ def stream_identifier_bindings(components: Iterable[str], tabs: int) -> str:
     )
 
 
-def checked_inputs(inputs: list[str], tabs: int) -> list[str]:
+def main_loop_header(flow: nx.DiGraph, tabs: int) -> str:
     indent = '\t' * tabs
 
-    return [
-        f'{indent}({name}_value := await {name}_fiber.asend(None)) is not None'
-        for name in inputs
-    ]
-
-
-def main_loop_header(inputs: list[str], tabs: int) -> str:
-    indent = '\t' * tabs
-    input_lines = checked_inputs(inputs, tabs + 2)
+    checked_inputs = (
+        f'{indent}\t\t({name}_value := await {name}_fiber.asend(None)) is not None'
+        for name in flow.nodes
+        if flow.in_degree(name) == 0
+    )
 
     return (
         f'{indent}while (\n' +
-        ' and\n'.join(input_lines) +
+        ' and\n'.join(checked_inputs) +
         '\n' +
         f'{indent}):'
     )
 
 
-def topological_order_from_root(
-    inputs: set[str],
-    dependencies: dict[str, tuple[str, ...]],
-    root: str,
-    visited: dict[str, bool]
-) -> list[str]:
-    if (
-        visited.get(root) is True or
-        root in inputs
-    ):
-        return []
-
-    if root not in dependencies:
-        # TODO: warn about dead component
-        return []
-
-    visited[root] = True
-
-    return sum(
-        (
-            topological_order_from_root(
-                inputs,
-                dependencies,
-                dependency,
-                visited
-            )
-            for dependency
-            in dependencies[root]
-        ),
-        start=[]
-    ) + [root]
-
-
-def ordered_components(inputs: list[str], outputs: list[str], dependencies: dict[str, tuple[str, ...]]) -> list[str]:
-    visited = dict()
-
-    return sum(
-        (
-            topological_order_from_root(
-                set(inputs),
-                dependencies,
-                root,
-                visited
-            )
-            for root
-            in outputs
-        ),
-        start=[]
-    )
-
-
-def packet_of_dependencies_to_send(component: str, dependencies: tuple[str, ...]) -> str:
+def packet_of_dependencies_to_send(component: str, dependencies: Iterable[str]) -> str:
     return (
         '(' + ', '.join(
-            f'{dependency}_value'
-            for dependency in dependencies
+            f'{name}_value'
+            for name in dependencies
         ) + ')'
     )
 
 
-def main_loop_body(inputs: list[str], outputs: list[str], dependencies: dict[str, tuple[str, ...]], tabs: int) -> str:
+def main_loop_body(flow: nx.DiGraph, dependencies: nx.DiGraph, tabs: int) -> str:
     indent = '\t' * tabs
 
     sends = '\n'.join(
         f'{indent}{name}_value = await {name}_fiber.asend({packet_of_dependencies_to_send(name, dependencies[name])})'
-        for name in ordered_components(
-            inputs,
-            outputs,
-            dependencies
-        )
+        for name in nx.topological_sort(flow)
+        if flow.in_degree(name) != 0
     )
 
     return sends + '\n' + f'{indent}yield False'
 
 
 def compiled_flow(
-    components: Iterable[str],
-    inputs: list[str],
-    outputs: list[str],
-    dependencies: dict[str, tuple[str, ...]],
+    flow: nx.DiGraph,
+    dependencies: nx.DiGraph,
     *,
     function_name: str = '__step'
 ) -> CodeType:
     header = f'async def {function_name}(components: dict[str, Component]) -> Fiber[None, bool]:'
     ending = f'\twhile True: yield True'
 
+    inputs = (node for node in flow.nodes if flow.in_degree(node) == 0)
+
     source_code = '\n'.join((
         header,
-        stream_identifier_bindings(components, 1),
-        main_loop_header(inputs, 1),
-        main_loop_body(inputs, outputs, dependencies, 2),
+        stream_identifier_bindings(flow.nodes, 1),
+        main_loop_header(flow, 1),
+        main_loop_body(flow, dependencies, 2),
         ending
     ))
 
