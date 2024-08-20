@@ -78,6 +78,9 @@ class Visualizer:
     def __draw_gaze_estimation(self, frame: Frame, result: gaze.Result) -> Frame:
         annotated_frame = frame.copy()
 
+        if isinstance(result, list):
+            print(f'[DUPA ZBITA] {result = }')
+
         for centre, versor in result.iter():
             start = typing.cast(cv2.typing.Point, centre[:-1].astype(int))
             end = typing.cast(cv2.typing.Point, (centre[:-1] + 100.0 * versor).astype(int))

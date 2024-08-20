@@ -7,6 +7,8 @@ from .task import pose, face, gaze
 from .task.visualization import Visualizer
 from .core.flow import Machinery
 
+BATCH_SIZE = 15
+
 
 async def main() -> None:
     executor = ThreadPoolExecutor(max_workers=8)
@@ -14,7 +16,7 @@ async def main() -> None:
     ceiling_reader = Reader(
         'dev/data/ultra_short/ceiling.mp4',
         perspective=Perspective.CEILING,
-        batch_size=5
+        batch_size=BATCH_SIZE
     )
 
     ceiling_properties = ceiling_reader.properties
@@ -22,13 +24,13 @@ async def main() -> None:
     window_left_reader = Reader(
         'dev/data/short/window_left.mp4',
         perspective=Perspective.WINDOW_LEFT,
-        batch_size=5
+        batch_size=BATCH_SIZE
     )
 
     window_right_reader = Reader(
         'dev/data/short/window_right.mp4',
         perspective=Perspective.WINDOW_RIGHT,
-        batch_size=5
+        batch_size=BATCH_SIZE
     )
 
     ceiling_pose_estimator = pose.Estimator(

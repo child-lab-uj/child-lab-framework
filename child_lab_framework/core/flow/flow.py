@@ -3,6 +3,7 @@ from operator import itemgetter
 import time
 import sys
 from typing import Any, Callable
+import typing
 import networkx as nx
 
 from ...typing.flow import Component
@@ -29,7 +30,7 @@ class Machinery:
         self.flow_controller = self.__compile()(self.components)
 
     def __build_dependencies(self, definitions: list[ComponentDefinition]) -> nx.DiGraph:
-        dependencies: dict[str, tuple[str, ...]] = dict()
+        dependencies: dict[str, Iterable[str]] = dict()
 
         for definition in definitions:
             match definition:
@@ -39,7 +40,7 @@ class Machinery:
                 case name, _, tuple(deps):
                     dependencies[name] = deps
 
-        graph = nx.DiGraph(dependencies)  # pyright: ignore
+        graph = nx.DiGraph(dependencies)
         assert nx.is_directed_acyclic_graph(graph)  # TODO: Throw a proper exception
 
         return graph
@@ -49,7 +50,6 @@ class Machinery:
         return locals()['__step']
 
     async def run(self) -> None:
-        return
         controller = self.flow_controller
         await controller.asend(None)
 

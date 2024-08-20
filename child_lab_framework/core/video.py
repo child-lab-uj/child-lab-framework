@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from enum import Enum, IntEnum, auto
 from typing import Literal
@@ -80,6 +81,7 @@ class Reader:
                 break
 
             yield batch
+            await asyncio.sleep(0.0)
 
         while True:
             yield None
@@ -119,6 +121,8 @@ class Writer:
 
                 case None:
                     continue
+
+            await asyncio.sleep(0.0)
 
 
 def cropped(frame: Frame, boxes: FloatArray2) -> list[Frame]:
