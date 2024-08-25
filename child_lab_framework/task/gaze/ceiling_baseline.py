@@ -8,6 +8,7 @@ from ...task import pose, face
 from ..pose.keypoint import YoloKeypoint
 
 
+# TODO: Move the geometry part to task.camera.transformation.heuristic
 def estimate(poses: list[pose.Result | None], faces: list[face.Result | None] | None) -> tuple[FloatArray3, FloatArray3]:
     result_centres: list[FloatArray2 | None] = []
     result_vectors: list[FloatArray2 | None] = []
