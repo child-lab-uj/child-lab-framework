@@ -66,6 +66,18 @@ class Estimator:
         self.window_left_properties = window_left_properties
         self.window_right_properties = window_right_properties
 
+    # TODO: implement
+    def predict(
+        self,
+        ceiling_pose: pose.Result | None,
+        window_left_pose: pose.Result | None,
+        window_right_pose: pose.Result | None,
+        window_left_face: face.Result | None,
+        window_right_face: face.Result | None
+    ):
+        raise NotImplementedError()
+
+    # TODO: JIT estimations
     def __predict(
         self,
         ceiling_pose: list[pose.Result | None],

@@ -1,3 +1,5 @@
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import typing
 from functools import lru_cache
 from typing import Literal
@@ -7,6 +9,7 @@ import cv2
 import mediapipe as mp
 
 from ...core.video import Frame
+from ...core.stream import Fiber
 from ...core import image
 from ...util import MODELS_DIR
 from ...typing.array import FloatArray1, FloatArray2, FloatArray3, FloatArray4
@@ -73,17 +76,34 @@ def padded(
     return padded_frame, padding
 
 
+def to_frame(depth_map: FloatArray2) -> Frame:
+    green = (depth_map / depth_map.max() * 255).astype(np.uint8)
+    other = np.zeros_like(green)
+    frame = np.transpose(np.stack((other, green, other)), (1, 2, 0))
+    return frame
+
+
 class Estimator:
     EXECUTION_PROVIDER = 'CPUExecutionProvider'
     MODEL_PATH = str(MODELS_DIR / 'metric3d-vit-small.onnx')
     MODEL_INPUT_SIZE = (616, 1064)
     PADDING_BORDER_COLOR = (123.675, 116.28, 103.53)
 
+    executor: ThreadPoolExecutor
     session: onnx.InferenceSession
 
-    def __init__(self) -> None:
+    def __init__(self, executor: ThreadPoolExecutor, *, inter_threads: int) -> None:
+        self.executor = executor
+
+        options = onnx.SessionOptions()
+        options.execution_mode = onnx.ExecutionMode.ORT_PARALLEL
+        options.graph_optimization_level = onnx.GraphOptimizationLevel.ORT_ENABLE_ALL
+        options.intra_op_num_threads = 0
+        options.inter_op_num_threads = inter_threads
+
         self.session = onnx.InferenceSession(
             self.MODEL_PATH,
+            options,
             providers=[self.EXECUTION_PROVIDER]
         )
 
@@ -106,10 +126,7 @@ class Estimator:
 
         return onnx_input, padding
 
-    def __call__(self, frame: Frame) -> tuple[FloatArray2, FloatArray3]:
-        return self.predict(frame)
-
-    def predict(self, frame: Frame) -> tuple[FloatArray2, FloatArray3]:
+    def predict(self, frame: Frame) -> FloatArray2:
         onnx_input, padding_info = self.__prepare_input(frame)
         results = self.session.run(None, onnx_input)
 
@@ -120,52 +137,31 @@ class Estimator:
         depth: FloatArray2 = results[0].squeeze()[result_rows, result_columns]
         depth = image.resized(depth, height, width)
 
-        normals: FloatArray3 = np.transpose(
-            results[1].squeeze(),
-            (1, 2, 0)
-        )[result_rows, result_columns, :]
-        normals = image.resized(normals, height, width)
+        # NOTE: Not needed now
+        # normals: FloatArray3 = np.transpose(
+        #     results[1].squeeze(),
+        #     (1, 2, 0)
+        # )[result_rows, result_columns, :]
+        # normals = image.resized(normals, height, width)
 
-        return depth, normals
+        return depth
 
+    async def stream(self) -> Fiber[list[Frame] | None, list[FloatArray2] | None]:
+        loop = asyncio.get_running_loop()
+        executor = self.executor
 
-def main() -> None:
-    import sys
-    from ...util import DEV_DIR
-    from ...core.video import Reader, Writer, Perspective, Format
+        results: list[FloatArray2] | None = None
 
-    def to_frame(depth_map: FloatArray2) -> Frame:
-        green = (depth_map / depth_map.max() * 255).astype(np.uint8)
-        other = np.zeros_like(green)
-        frame = np.transpose(np.stack((other, green, other)), (1, 2, 0))
-        return frame
+        while True:
+            match (yield results):
+                case list(frames):
+                    results = await loop.run_in_executor(
+                        executor,
+                        lambda: [
+                            self.predict(frame)
+                            for frame in frames
+                        ]
+                    )
 
-
-    reader = Reader(
-        str(DEV_DIR / 'data/short/window_left.mp4'),
-        perspective=Perspective.CEILING,
-        batch_size=10
-    )
-
-    writer = Writer(
-        str(DEV_DIR / 'output/depth.mp4'),
-        reader.properties,
-        output_format=Format.MP4
-    )
-
-    reader_thread = reader.stream()
-    writer_thread = writer.stream()
-
-    estimator = Estimator()
-
-    frames_count = 0
-    fps = reader.properties.fps
-
-    while frames := reader_thread.send(None):
-        writer_thread.send([to_frame(estimator.predict(frame)[0]) for frame in frames])
-
-        frames_count += len(frames)
-        seconds = frames_count / fps
-
-        sys.stdout.write(f'\r{seconds = :.2f}')
-        sys.stdout.flush()
+                case _:
+                    results = None

@@ -107,6 +107,11 @@ class Estimator:
             .item()
         )
 
+    # TODO: use detector.predict and self.__interpret here
+    def predict(self, frame: Frame) -> Result | None:
+        raise NotImplementedError()
+
+    # TODO: JIT
     def __interpret(self, detections: yolo.Results) -> Result | None:
         boxes = detections.boxes
         keypoints = detections.keypoints

@@ -124,7 +124,7 @@ class Estimator:
         self.detector = FaceLandmarker.create_from_options(options)
         self.executor = executor
 
-    def __detect(self, frame: Frame, boxes: pose.BatchedBoxes) -> Result | None:
+    def predict(self, frame: Frame, boxes: pose.BatchedBoxes) -> Result | None:
         humans = cropped(frame, boxes)
 
         landmarks: list[FloatArray2 | None] = []
@@ -170,7 +170,7 @@ class Estimator:
                     results = await loop.run_in_executor(
                         executor,
                         lambda: [
-                            self.__detect(frame, frame_poses.boxes)
+                            self.predict(frame, frame_poses.boxes)
                             if frame_poses is not None
                             else None
                             for frame, frame_poses
