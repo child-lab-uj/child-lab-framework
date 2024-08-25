@@ -15,6 +15,7 @@ from ...util import MODELS_DIR
 from ...core.stream import autostart
 from ...core.video import Frame
 from ...core.geometry import area_broadcast
+from ...core.hardware import get_best_device
 from ...typing.array import FloatArray1, FloatArray2, FloatArray3
 from ...typing.stream import Fiber
 from .duplication import deduplicated
@@ -62,8 +63,8 @@ class Result:
     ) -> None:
         self.n_detections = n_detections
         (self.boxes, self.keypoints, self.actors) = Result.__ordered(
-            typing.cast(BatchedBoxes, boxes.numpy().data),
-            typing.cast(BatchedKeypoints, keypoints.numpy().data),
+            typing.cast(BatchedBoxes, boxes.data.cpu().numpy()),
+            typing.cast(BatchedKeypoints, keypoints.data.cpu().numpy()),
             actors
         )
 
@@ -78,6 +79,7 @@ class Estimator:
     threshold: float  # NOTE: currently unused, but may remain for future use
     detector: ultralytics.YOLO
     executor: ThreadPoolExecutor
+    device: torch.device
 
     def __init__(self, executor: ThreadPoolExecutor, *, max_detections: int, threshold: float) -> None:
         self.max_detections = max_detections
@@ -89,6 +91,8 @@ class Estimator:
             task='pose',
             verbose=False
         )
+
+        self.device = get_best_device()
 
     # NOTE heuristic: Children have substantially smaller bounding boxes than adults
     def __detect_child(self, boxes: yolo.Boxes) -> int | None:
@@ -130,6 +134,7 @@ class Estimator:
         detector = self.detector
         executor = self.executor
         loop = asyncio.get_running_loop()
+        device = self.device
 
         results: list[Result | None] | None = None
 
@@ -138,7 +143,7 @@ class Estimator:
                 case list(frames):
                     detections = await loop.run_in_executor(
                         executor,
-                        lambda: detector.predict(frames, stream=False, verbose=False)
+                        lambda: detector.predict(frames, stream=False, verbose=False, device=device)
                     )
 
                     results = [self.__interpret(detection) for detection in detections]
