@@ -101,8 +101,6 @@ def compiled_flow(
         ending
     ))
 
-    print('[INFO] Flow source code:', source_code, sep='\n')
-
     return compile(
         source_code,
         filename='compiled_flow',

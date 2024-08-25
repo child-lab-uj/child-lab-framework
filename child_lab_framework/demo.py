@@ -3,11 +3,11 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from .core.video import Reader, Writer, Perspective, Properties, Format
-from .task import pose, face, gaze
+from .task import pose, face, gaze, depth
 from .task.visualization import Visualizer
 from .core.flow import Machinery
 
-BATCH_SIZE = 15
+BATCH_SIZE = 5
 
 
 async def main() -> None:
@@ -32,6 +32,10 @@ async def main() -> None:
         perspective=Perspective.WINDOW_RIGHT,
         batch_size=BATCH_SIZE
     )
+
+    ceiling_depth_estimator = depth.Estimator(executor, inter_threads=3)
+    window_left_depth_estimator = depth.Estimator(executor, inter_threads=3)
+    window_right_depth_estimator = depth.Estimator(executor, inter_threads=3)
 
     ceiling_pose_estimator = pose.Estimator(
         executor,
@@ -84,6 +88,9 @@ async def main() -> None:
         ('ceiling_reader', ceiling_reader),
         ('window_left_reader', window_left_reader),
         ('window_right_reader', window_right_reader),
+        ('ceiling_depth', ceiling_depth_estimator, 'ceiling_reader'),
+        ('window_left_depth', window_left_depth_estimator, 'window_left_reader'),
+        ('window_right_depth', window_right_depth_estimator, 'window_right_reader'),
         ('ceiling_pose', ceiling_pose_estimator, 'ceiling_reader'),
         ('window_left_pose', window_left_pose_estimator, 'window_left_reader'),
         ('window_right_pose', window_right_pose_estimator, 'window_right_reader'),
