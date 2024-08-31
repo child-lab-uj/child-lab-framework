@@ -1,9 +1,6 @@
-from collections.abc import Generator
-from typing import Literal
 import typing
 import cv2
 import numpy as np
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from ..pose.keypoint import YOLO_SKELETON
@@ -40,7 +37,7 @@ class Visualizer:
     def __draw_skeleton_and_joints(self, frame: Frame, result: pose.Result) -> Frame:
         annotated_frame = frame.copy()
 
-        for (actor, boxes, keypoints) in result.iter():
+        for _, _, keypoints in result.iter():
             for i, j in YOLO_SKELETON:
                 if keypoints[i, -1] < self.confidence_threshold:
                     continue
@@ -78,12 +75,9 @@ class Visualizer:
     def __draw_gaze_estimation(self, frame: Frame, result: gaze.Result) -> Frame:
         annotated_frame = frame.copy()
 
-        if isinstance(result, list):
-            print(f'[DUPA ZBITA] {result = }')
-
         for centre, versor in result.iter():
-            start = typing.cast(cv2.typing.Point, centre[:-1].astype(int))
-            end = typing.cast(cv2.typing.Point, (centre[:-1] + 100.0 * versor).astype(int))
+            start = typing.cast(cv2.typing.Point, centre[[0, 1]].astype(int))
+            end = typing.cast(cv2.typing.Point, (centre[[0, 1]] + 100.0 * versor).astype(int))
 
             cv2.line(annotated_frame, start, end, self.GAZE_COLOR, self.GAZE_THICKNESS)
 
@@ -110,7 +104,7 @@ class Visualizer:
                         annotated_frames.append(out)
 
                 case list(frames), *_:
-                    results = frames
+                    annotated_frames = frames
 
                 case _:
-                    results = None
+                    annotated_frames = None

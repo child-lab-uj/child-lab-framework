@@ -17,6 +17,8 @@ colorama = "^0.4.6"
 onnxruntime = "^1.18.1"
 numba = "^0.60.0"
 networkx = "^3.3"
+scipy = "^1.14.1"
+pandas = "^2.2.2"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"

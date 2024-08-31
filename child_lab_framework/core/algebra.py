@@ -37,10 +37,16 @@ def rotation_matrix(angle: float, axis: Axis) -> FloatArray2:
             ], dtype=np.float32)
 
 
+
 def normalized(vecs: FloatArray2) -> FloatArray2:
-    norm = np.linalg.norm(vecs, ord=2.0, axis=0)
+    norm = np.linalg.norm(vecs, ord=2.0, axis=1)
     return vecs / norm
 
 
+def normalized_3d(batched_vecs: FloatArray3) -> FloatArray3:
+    norm = np.linalg.norm(batched_vecs, ord=2.0, axis=2)[:, :, np.newaxis]
+    return batched_vecs / norm
+
+
 def orthogonal(vecs: FloatArray2) -> FloatArray2:
-    return vecs[:, 1::-1] * np.array([1.0, -1.0], dtype=np.float32)
+    return vecs[:, [1, 0]] * np.array([1.0, -1.0], dtype=np.float32)

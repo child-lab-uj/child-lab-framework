@@ -1,6 +1,5 @@
 import typing
 import numpy as np
-import numpy.typing
 
 
 def imputed_with_reference_inplace[T](sequence: list[T | None]) -> list[T]:

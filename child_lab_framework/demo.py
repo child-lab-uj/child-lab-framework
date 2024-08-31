@@ -1,11 +1,10 @@
-import sys
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-from .core.video import Reader, Writer, Perspective, Properties, Format
-from .task import pose, face, gaze, depth
-from .task.visualization import Visualizer
+from .core.video import Reader, Writer, Perspective, Format
 from .core.flow import Machinery
+from .task import pose, face, gaze, depth, social_distance
+from .task.visualization import Visualizer
+from .task.camera.transformation import heuristic
 
 BATCH_SIZE = 5
 
@@ -18,8 +17,6 @@ async def main() -> None:
         perspective=Perspective.CEILING,
         batch_size=BATCH_SIZE
     )
-
-    ceiling_properties = ceiling_reader.properties
 
     window_left_reader = Reader(
         'dev/data/short/window_left.mp4',
@@ -55,6 +52,18 @@ async def main() -> None:
         threshold=0.5
     )
 
+    window_left_to_ceiling_transformation_estimator = heuristic.Estimator(
+        window_left_reader.properties,
+        ceiling_reader.properties,
+        executor
+    )
+
+    window_right_to_ceiling_transformation_estimator = heuristic.Estimator(
+        window_right_reader.properties,
+        ceiling_reader.properties,
+        executor
+    )
+
     window_left_face_estimator = face.Estimator(
         executor,
         max_results=2,
@@ -76,6 +85,9 @@ async def main() -> None:
         window_right_reader.properties,
     )
 
+    social_distance_estimator = social_distance.Estimator(executor)
+    social_distance_logger = social_distance.FileLogger('dev/output/distance.csv')
+
     visualizer = Visualizer(executor, confidence_threshold=0.5)
 
     writer = Writer(
@@ -94,12 +106,23 @@ async def main() -> None:
         ('ceiling_pose', ceiling_pose_estimator, 'ceiling_reader'),
         ('window_left_pose', window_left_pose_estimator, 'window_left_reader'),
         ('window_right_pose', window_right_pose_estimator, 'window_right_reader'),
+        ('window_left_to_ceiling', window_left_to_ceiling_transformation_estimator, (
+            'window_left_pose', 'ceiling_pose',
+            'window_left_depth', 'ceiling_depth'
+        )),
+        ('window_right_to_ceiling', window_right_to_ceiling_transformation_estimator, (
+            'window_right_pose', 'ceiling_pose',
+            'window_right_depth', 'ceiling_depth'
+        )),
         ('window_left_face', window_left_face_estimator, 'window_left_reader'),
         ('window_right_face', window_right_face_estimator, 'window_right_reader'),
         ('gaze', gaze_estimator, (
             'ceiling_pose','window_left_pose', 'window_right_pose',
-            'window_left_face', 'window_right_face'
+            'window_left_face', 'window_right_face',
+            'window_left_to_ceiling', 'window_right_to_ceiling'
         )),
+        ('social_distance', social_distance_estimator, 'ceiling_pose'),
+        ('social_distance_logger', social_distance_logger, 'social_distance'),
         ('visualizer', visualizer, ('ceiling_reader', 'ceiling_pose', 'gaze')),
         ('writer', writer, 'visualizer')
     ])

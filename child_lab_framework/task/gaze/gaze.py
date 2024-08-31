@@ -1,20 +1,16 @@
 from dataclasses import dataclass
-from enum import IntEnum
-import numpy as np
-from collections.abc import Generator, Iterable
-import typing
-from typing import Literal
+from collections.abc import Iterable
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-from ...core.stream import autostart
-from ...core.video import Perspective, Properties
-from ...core.algebra import normalized, orthogonal, Axis, rotation_matrix
+from . import ceiling_baseline, side_correction
 from .. import pose, face
-from ..pose.keypoint import YoloKeypoint
+from ..camera.transformation import heuristic
+from ...core.stream import autostart
+from ...core.video import Properties
+from ...core.algebra import normalized_3d
 from ...typing.array import FloatArray1, FloatArray2, FloatArray3
 from ...typing.stream import Fiber
-from . import ceiling_baseline, side_correction
 
 
 # Multi-camera gaze direction estimation without strict algebraic camera models:
@@ -32,6 +28,8 @@ type Input = tuple[
     list[pose.Result | None] | None,
     list[face.Result | None] | None,
     list[face.Result | None] | None,
+    list[heuristic.Result | None] | None,
+    list[heuristic.Result | None] | None,
 ]
 
 
@@ -45,7 +43,7 @@ class Result:
 
 
 class Estimator:
-    BASELINE_WEIGHT: float = 0.1
+    BASELINE_WEIGHT: float = 0.5
     CORRECTION_WEIGHT: float = 1.0 - BASELINE_WEIGHT
 
     ceiling_properties: Properties
@@ -84,7 +82,9 @@ class Estimator:
         window_left_pose: list[pose.Result | None] | None,
         window_right_pose: list[pose.Result | None] | None,
         window_left_face: list[face.Result | None] | None,
-        window_right_face: list[face.Result | None] | None
+        window_right_face: list[face.Result | None] | None,
+        window_left_to_ceiling: list[heuristic.Result | None] | None,
+        window_right_to_ceiling: list[heuristic.Result | None] | None
     ) -> list[Result | None] | None:
         collective_centres, baseline_vectors = ceiling_baseline.estimate(ceiling_pose, None)
 
@@ -93,12 +93,11 @@ class Estimator:
                 ceiling_pose,
                 window_left_pose,
                 window_left_face,
-                Perspective.WINDOW_LEFT,
-                self.ceiling_properties,
-                self.window_left_properties
+                window_left_to_ceiling
             )
             if window_left_pose is not None
             and window_left_face is not None
+            and window_left_to_ceiling is not None
             else None
         )
 
@@ -107,25 +106,33 @@ class Estimator:
                 ceiling_pose,
                 window_right_pose,
                 window_right_face,
-                Perspective.WINDOW_RIGHT,
-                self.ceiling_properties,
-                self.window_right_properties
+                window_right_to_ceiling
             )
             if window_right_pose is not None
             and window_right_face is not None
+            and window_right_to_ceiling is not None
             else None
         )
 
-        result_vectors = baseline_vectors
+        baseline_vectors *= self.BASELINE_WEIGHT
+        result_vectors: FloatArray3 = baseline_vectors
 
-        # print(f'\n{left_corrections = }')
-        # print(f'\n{right_corrections = }\n')
+        match (left_corrections, right_corrections):
+            case None, None:
+                ...
 
-        if left_corrections is not None:
-            result_vectors += left_corrections
+            case left, None:
+                result_vectors += left * self.CORRECTION_WEIGHT
 
-        if right_corrections is not None:
-            result_vectors += right_corrections
+            case None, right:
+                result_vectors += right * self.CORRECTION_WEIGHT
+
+            case left, right:
+                weight = self.CORRECTION_WEIGHT / 2.0
+                result_vectors += left * weight
+                result_vectors += right * weight
+
+        result_vectors = normalized_3d(result_vectors)
 
         return [
             Result(centres, vectors)
@@ -151,7 +158,9 @@ class Estimator:
                     window_left_pose,
                     window_right_pose,
                     window_left_face,
-                    window_right_face
+                    window_right_face,
+                    window_left_to_ceiling,
+                    window_right_to_ceiling
                 ):
                     results = await loop.run_in_executor(
                         executor,
@@ -160,7 +169,9 @@ class Estimator:
                             window_left_pose,
                             window_right_pose,
                             window_left_face,
-                            window_right_face
+                            window_right_face,
+                            window_left_to_ceiling,
+                            window_right_to_ceiling
                         )
                     )
 

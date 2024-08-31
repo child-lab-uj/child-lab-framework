@@ -1,9 +1,8 @@
-from operator import itemgetter
+from functools import lru_cache
 import typing
-from typing import Any, Callable, Iterable, Literal
-from collections.abc import Generator, Sequence
-from dataclasses import dataclass
-from enum import Enum, IntEnum, auto
+from typing import Self
+from collections.abc import Iterable
+from enum import IntEnum, auto
 import numpy as np
 import torch
 import ultralytics
@@ -16,9 +15,10 @@ from ...core.stream import autostart
 from ...core.video import Frame
 from ...core.geometry import area_broadcast
 from ...core.hardware import get_best_device
-from ...typing.array import FloatArray1, FloatArray2, FloatArray3
+from ...typing.array import FloatArray1, FloatArray2, FloatArray3, BoolArray2, IntArray2
 from ...typing.stream import Fiber
 from .duplication import deduplicated
+from .keypoint import YoloKeypoint
 
 
 type Box = FloatArray1
@@ -62,14 +62,47 @@ class Result:
             actors: list[Actor]
     ) -> None:
         self.n_detections = n_detections
-        (self.boxes, self.keypoints, self.actors) = Result.__ordered(
-            typing.cast(BatchedBoxes, boxes.data.cpu().numpy()),
-            typing.cast(BatchedKeypoints, keypoints.data.cpu().numpy()),
+        self.boxes, self.keypoints, self.actors = Result.__ordered(
+            typing.cast(BatchedBoxes, boxes.data.cpu().numpy()),  # pyright: ignore
+            typing.cast(BatchedKeypoints, keypoints.data.cpu().numpy()),  # pyright: ignore
             actors
         )
 
     def iter(self) -> Iterable[tuple[Actor, Box, Keypoints]]:
         return zip(self.actors, self.boxes, self.keypoints)
+
+    @property
+    @lru_cache(1)
+    def centres(self) -> FloatArray2:
+        keypoints = self.keypoints.view()
+        return (
+            keypoints[:, YoloKeypoint.RIGHT_SHOULDER, :2] +
+            keypoints[:, YoloKeypoint.LEFT_SHOULDER, :2]
+        ) / 2.0
+
+    @property
+    @lru_cache(1)
+    def depersonificated_keypoints(self) -> FloatArray2:
+        return np.concatenate(self.keypoints)
+
+
+def common_points_indicator(pose1: Result, pose2: Result, probability_threshold: float) -> BoolArray2:
+    joint_probabilities = pose1.keypoints.view()[:, :, 2] * pose2.keypoints.view()[:, :, 2]
+    return joint_probabilities >= probability_threshold
+
+
+def shoulders_depth(pose: Result, depth: FloatArray2) -> FloatArray2:
+    shoulders: IntArray2 = pose.keypoints[:, [YoloKeypoint.LEFT_SHOULDER, YoloKeypoint.RIGHT_SHOULDER], :].astype(np.int32)
+
+    left_x = shoulders.view()[:, 0, 0]
+    left_y = shoulders.view()[:, 0, 1]
+    right_x = shoulders.view()[:, 1, 0]
+    right_y = shoulders.view()[:, 1, 1]
+
+    return depth.view()[
+        [left_y, right_y],
+        [left_x, right_x]
+    ]
 
 
 class Estimator:
