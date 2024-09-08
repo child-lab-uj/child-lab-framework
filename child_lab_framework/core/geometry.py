@@ -1,5 +1,6 @@
 import torch
 import typing
+from collections.abc import Callable
 
 
 def area(rect: torch.Tensor) -> torch.Tensor:
@@ -8,6 +9,6 @@ def area(rect: torch.Tensor) -> torch.Tensor:
     return width * height
 
 area_broadcast = typing.cast(
-    typing.Callable[[torch.Tensor], torch.Tensor],
+    Callable[[torch.Tensor], torch.Tensor],
     torch.vmap(area, 0)
 )

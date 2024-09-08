@@ -31,23 +31,6 @@ def estimate(
     to_keypoints = to_pose.depersonificated_keypoints
     common = common_points_indicator(from_keypoints, to_keypoints, confidence_threshold)
 
-    # print(f'{common = }')
-    # print(f'{from_keypoints = }')
-
-    # try:
-    #     from_points_2d: FloatArray2 = from_pose.keypoints.view()[common, :2]
-
-    # except Exception as e:
-    #     print(
-    #         f'{common = }',
-    #         f'{from_pose.keypoints = }',
-    #         sep='\n'
-    #     )
-
-    #     raise e
-
-    # to_points_2d: FloatArray2 = to_pose.keypoints.view()[common, :2]
-
     from_points_2d: FloatArray2 = from_keypoints.view()[common][:, [0, 1]]
     to_points_2d: FloatArray2 = to_keypoints.view()[common][:, [0, 1]]
 

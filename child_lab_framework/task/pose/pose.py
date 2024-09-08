@@ -1,6 +1,5 @@
 from functools import lru_cache
 import typing
-from typing import Self
 from collections.abc import Iterable
 from enum import IntEnum, auto
 import numpy as np

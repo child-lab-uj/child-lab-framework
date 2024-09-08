@@ -6,13 +6,12 @@ from typing import Literal
 import numpy as np
 import onnxruntime as onnx
 import cv2
-import mediapipe as mp
 
 from ...core.video import Frame
 from ...core.stream import Fiber
 from ...core import image
 from ...util import MODELS_DIR
-from ...typing.array import FloatArray1, FloatArray2, FloatArray3, FloatArray4
+from ...typing.array import FloatArray2, FloatArray3, FloatArray4
 
 
 type OnnxInputDict = dict[

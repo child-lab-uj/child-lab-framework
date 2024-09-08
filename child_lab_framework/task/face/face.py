@@ -1,7 +1,4 @@
-from collections.abc import Generator
-from dataclasses import dataclass
-from enum import Enum, IntEnum, auto
-from typing import Self
+from enum import Enum
 import cv2
 import numpy as np
 import asyncio
@@ -10,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 import mediapipe as mp
 from mediapipe.tasks.python.vision.core.vision_task_running_mode import VisionTaskRunningMode
 from mediapipe.tasks.python.components.containers.landmark import NormalizedLandmark
-from mediapipe.tasks.python.vision import RunningMode
 
 from mediapipe.tasks.python import (
     BaseOptions,
@@ -19,19 +15,13 @@ from mediapipe.tasks.python import (
 from mediapipe.tasks.python.vision.face_landmarker import (
     FaceLandmarker,
     FaceLandmarkerOptions,
-    FaceLandmarksConnections,
-    FaceLandmarkerResult
 )
 
 from ...util import MODELS_DIR
 from .. import pose
-from ..pose import Box
 from ...core.video import Frame, cropped
 from ...core.stream import autostart
-from ...core.sequence import (
-    imputed_with_reference_inplace,
-    imputed_with_zeros_reference_inplace
-)
+from ...core.sequence import imputed_with_zeros_reference_inplace
 from ...typing.stream import Fiber
 from ...typing.array import FloatArray1, FloatArray2, FloatArray3
 
