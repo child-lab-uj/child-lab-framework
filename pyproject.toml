@@ -15,10 +15,12 @@ ultralytics = "^8.2.72"
 mediapipe = "^0.10.14"
 colorama = "^0.4.6"
 onnxruntime = "^1.18.1"
-numba = "^0.60.0"
 networkx = "^3.3"
 scipy = "^1.14.1"
 pandas = "^2.2.2"
+mtcnn = "^0.1.1"
+ml-dtypes = "0.4.0"          # problematic dependency; TODO: check if upgradable in the future
+tensorflow = "^2.17.0"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"
