@@ -1,7 +1,6 @@
 import numpy as np
 
 from .. import pose, face
-from ..face import Eye
 from ..camera.transformation import heuristic
 from ...core.sequence import imputed_with_zeros_reference_inplace
 from ...typing.array import FloatArray2, FloatArray3
@@ -39,7 +38,7 @@ def estimate(
             results.append(None)
             continue
 
-        right_eyes_normals = eye_normals(faces.eyes(Eye.Right)[:, :, :3])
+        right_eyes_normals = eye_normals(faces.eyes(face.Eye.Right)[:, :, :3])
         ceiling_gazes = (right_eyes_normals @ transformation.rotation + transformation.translation.T).view()[:, [0, 1]]
 
         results.append(ceiling_gazes)

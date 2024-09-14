@@ -1,1 +1,2 @@
-from .face import Estimator, Result, Eye
+from .face import Eye
+from .keypoints import Result, Estimator

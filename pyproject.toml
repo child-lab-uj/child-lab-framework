@@ -19,6 +19,7 @@ numba = "^0.60.0"
 networkx = "^3.3"
 scipy = "^1.14.1"
 pandas = "^2.2.2"
+mtcnn = "^0.1.1"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"
