@@ -2,3 +2,6 @@
 [submodule "widget/test-widget"]
 	path = widget/test-widget
 	url = git@github.com:child-lab-uj/test-widget.git
+[submodule "dev/gaze-tracking"]
+	path = dev/gaze-tracking
+	url = git@github.com:child-lab-uj/gaze-tracking.git

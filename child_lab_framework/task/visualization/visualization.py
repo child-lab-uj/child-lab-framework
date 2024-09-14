@@ -75,11 +75,12 @@ class Visualizer:
     def __draw_gaze_estimation(self, frame: Frame, result: gaze.Result) -> Frame:
         annotated_frame = frame.copy()
 
-        for centre, versor in result.iter():
-            start = typing.cast(cv2.typing.Point, centre[[0, 1]].astype(int))
-            end = typing.cast(cv2.typing.Point, (centre[[0, 1]] + 100.0 * versor).astype(int))
+        print(f'[Visualizer - gaze estimation] {result = }')
+        # for centre, versor in result.iter():
+        #     start = typing.cast(cv2.typing.Point, centre[[0, 1]].astype(int))
+        #     end = typing.cast(cv2.typing.Point, (centre[[0, 1]] + 100.0 * versor).astype(int))
 
-            cv2.line(annotated_frame, start, end, self.GAZE_COLOR, self.GAZE_THICKNESS)
+        #     cv2.line(annotated_frame, start, end, self.GAZE_COLOR, self.GAZE_THICKNESS)
 
         return annotated_frame
 

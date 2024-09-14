@@ -66,23 +66,17 @@ async def main() -> None:
 
     window_left_face_estimator = face.Estimator(
         executor,
-        max_results=2,
-        detection_threshold=0.1,
-        tracking_threshold=0.1
+        threshold=0.1
     )
 
     window_right_face_estimator = face.Estimator(
         executor,
-        max_results=2,
-        detection_threshold=0.1,
-        tracking_threshold=0.1
+        threshold=0.1
     )
 
-    gaze_estimator = gaze.Estimator(
+    window_left_gaze_estimator = gaze.Estimator(
         executor,
-        ceiling_reader.properties,
-        window_left_reader.properties,
-        window_right_reader.properties,
+        properties=window_left_reader.properties,
     )
 
     social_distance_estimator = social_distance.Estimator(executor)
@@ -91,8 +85,8 @@ async def main() -> None:
     visualizer = Visualizer(executor, confidence_threshold=0.5)
 
     writer = Writer(
-        'dev/output/gaze_test.mp4',
-        ceiling_reader.properties,
+        'dev/output/openface_gaze_test.mp4',
+        window_left_reader.properties,
         output_format=Format.MP4
     )
 
@@ -116,14 +110,10 @@ async def main() -> None:
         )),
         ('window_left_face', window_left_face_estimator, 'window_left_reader'),
         ('window_right_face', window_right_face_estimator, 'window_right_reader'),
-        ('gaze', gaze_estimator, (
-            'ceiling_pose','window_left_pose', 'window_right_pose',
-            'window_left_face', 'window_right_face',
-            'window_left_to_ceiling', 'window_right_to_ceiling'
-        )),
+        ('window_left_gaze', window_left_gaze_estimator, ('window_left_reader', 'window_left_face')),
         ('social_distance', social_distance_estimator, 'ceiling_pose'),
         ('social_distance_logger', social_distance_logger, 'social_distance'),
-        ('visualizer', visualizer, ('ceiling_reader', 'ceiling_pose', 'gaze')),
+        ('visualizer', visualizer, ('window_left_reader', 'window_left_pose', 'window_left_gaze')),
         ('writer', writer, 'visualizer')
     ])
 

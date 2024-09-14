@@ -4,6 +4,7 @@ from enum import Enum, IntEnum, auto
 import typing
 import numpy as np
 import cv2
+from functools import lru_cache
 
 from ..typing.stream import Fiber
 from ..typing.video import Frame
@@ -24,12 +25,53 @@ class Perspective(IntEnum):
     WALL_LEFT = auto()
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
+class Calibration:
+    optical_center: tuple[float, float]
+    focal_length: tuple[float, float]
+
+    @staticmethod
+    def heuristic(width: int, height: int) -> 'Calibration':
+        cx = width / 2.0
+        cy = height / 2.0
+
+        fx = 500.0 * width / 640.0
+        fy = 500.0 * height / 480.0
+        fx = (fx + fy) / 2.0
+        fy = fx
+
+        return Calibration(
+            (cx, cy),
+            (fx, fy)
+        )
+
+    @lru_cache(1)
+    def flat(self) -> tuple[float, float, float, float]:
+        return (
+            *self.focal_length,
+            *self.optical_center
+        )
+
+
 class Properties:
     width: int
     height: int
     fps: int
     perspective: Perspective
+    calibration: Calibration
+
+    def __init__(
+        self,
+        width: int,
+        height: int,
+        fps: int,
+        perspective: Perspective
+    ) -> None:
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.perspective = perspective
+        self.calibration = Calibration.heuristic(width, height)
 
 
 class Reader:
