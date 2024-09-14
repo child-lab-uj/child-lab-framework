@@ -128,7 +128,7 @@ class Estimator:
 
     # NOTE heuristic: Children have substantially smaller bounding boxes than adults
     def __detect_child(self, boxes: yolo.Boxes) -> int | None:
-        if len(boxes) == 1:
+        if len(boxes) < 2:
             return None
 
         boxes_data = typing.cast(torch.Tensor, boxes.data)
