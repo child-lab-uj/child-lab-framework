@@ -1,13 +1,10 @@
 import asyncio
-import os
 from pathlib import Path
-from filelock import BaseFileLock, FileLock
-from typing import Literal, TextIO
+from typing import TextIO
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from scipy.spatial.distance import pdist
 import numpy as np
-import numba
 
 from .. import pose
 from ...typing.array import FloatArray2
