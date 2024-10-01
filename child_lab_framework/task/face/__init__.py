@@ -1,3 +1,3 @@
-from .face import Estimator, Eye, Result
+from .face import Estimator, Result
 
-__all__ = ['Estimator', 'Eye', 'Result']
+__all__ = ['Estimator', 'Result']

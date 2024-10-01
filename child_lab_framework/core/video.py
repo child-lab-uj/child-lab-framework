@@ -27,7 +27,7 @@ class Perspective(IntEnum):
     WALL_LEFT = auto()
 
 
-@dataclass(unsafe_hash=True, frozen=True)
+@dataclass(unsafe_hash=True)
 class Calibration:
     optical_center: tuple[float, float]
     focal_length: tuple[float, float]

@@ -30,14 +30,13 @@ class Estimator:
 
     def __init__(
         self,
-        executor: ThreadPoolExecutor,
         from_view: Properties,
         to_view: Properties,
+        executor: ThreadPoolExecutor,
         *,
         keypoint_threshold: float = 0.25,
     ) -> None:
         self.from_view = from_view
-
         self.to_view = to_view
         self.to_view_intrinsics = to_view.calibration.intrinsics()[:3, :3]
         self.to_view_distortion = to_view.calibration.distortion()
