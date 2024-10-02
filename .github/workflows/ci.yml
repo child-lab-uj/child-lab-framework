@@ -4,7 +4,7 @@ on: pull_request
 
 jobs:
   poetry:
-    name: Build and check project
+    name: Build project
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -23,15 +23,12 @@ jobs:
           virtualenvs-in-project: true
           installer-parallel: true
 
-      # - name: Load cached venv
-      #   id: cached-poetry-dependencies
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: .venv
-      #     key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
-
-      - name: Activate Poetry shell
-        run: poetry shell
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
 
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
@@ -40,11 +37,20 @@ jobs:
       - name: Install project
         run: poetry install --no-interaction
 
-      - name: Check format
-        run: poetry format --check
+  ruff:
+    name: Ruff check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Ruff
+        uses: astral-sh/ruff-action@v1
 
       - name: Lint
-        run: poetry lint
+        run: ruff check
+
+      - name: Check format
+        run: ruff format --check
 
   typos:
     name: Check typos
