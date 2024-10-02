@@ -38,13 +38,11 @@ jobs:
         run: poetry install --no-interaction
 
   ruff:
-    name: Ruff check
+    name: Check project with Ruff
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Ruff
-        uses: astral-sh/ruff-action@v1
+      - uses: astral-sh/ruff-action@v1
 
       - name: Lint
         run: ruff check
