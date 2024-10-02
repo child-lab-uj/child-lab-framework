@@ -103,7 +103,7 @@ class Estimator:
     ) -> None:
         self.max_results = max_results
         self.detection_threshold = detection_threshold
-        self.tracking_treshold = tracking_threshold
+        self.tracking_threshold = tracking_threshold
 
         options = FaceLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=self.MODEL_PATH),

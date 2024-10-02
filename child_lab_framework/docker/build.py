@@ -36,7 +36,7 @@ def build(widget_name: str) -> str:
     )
 
     if expected_tag in image_tags:
-        Logger.info(f'Found image {expected_tag}, ommiting the build step.')
+        Logger.info(f'Found image {expected_tag}, omitting the build step.')
         return expected_tag
 
     Logger.info(f'Image {expected_tag} not found, building, it may take some time.')
