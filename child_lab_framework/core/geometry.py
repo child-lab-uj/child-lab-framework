@@ -8,7 +8,5 @@ def area(rect: torch.Tensor) -> torch.Tensor:
     height = rect[2] - rect[0]
     return width * height
 
-area_broadcast = typing.cast(
-    Callable[[torch.Tensor], torch.Tensor],
-    torch.vmap(area, 0)
-)
+
+area_broadcast = typing.cast(Callable[[torch.Tensor], torch.Tensor], torch.vmap(area, 0))

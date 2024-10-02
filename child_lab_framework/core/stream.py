@@ -1,7 +1,4 @@
-import asyncio
 from functools import wraps
-
-from ..typing.stream import Fiber
 
 
 def autostart(method):

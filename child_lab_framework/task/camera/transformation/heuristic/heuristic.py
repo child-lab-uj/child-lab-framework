@@ -1,20 +1,19 @@
 import asyncio
-from itertools import starmap
 from concurrent.futures.thread import ThreadPoolExecutor
 from dataclasses import dataclass
+from itertools import starmap
 
-from . import kabsch
-from .... import pose
 from .....core.video import Properties
 from .....typing.array import FloatArray1, FloatArray2
 from .....typing.stream import Fiber
-
+from .... import pose
+from . import kabsch
 
 type Input = tuple[
     list[pose.Result | None] | None,
     list[pose.Result | None] | None,
     list[FloatArray2],
-    list[FloatArray2]
+    list[FloatArray2],
 ]
 
 
@@ -42,7 +41,7 @@ class Estimator:
         to_view: Properties,
         executor: ThreadPoolExecutor,
         *,
-        keypoint_threshold: float = 0.25
+        keypoint_threshold: float = 0.25,
     ) -> None:
         self.from_view = from_view
         self.to_view = to_view
@@ -54,12 +53,14 @@ class Estimator:
         from_pose: pose.Result | None,
         to_pose: pose.Result | None,
         from_depth: FloatArray2,
-        to_depth: FloatArray2
+        to_depth: FloatArray2,
     ) -> Result | None:
         if from_pose is None or to_pose is None:
             return None
 
-        match kabsch.estimate(from_pose, to_pose, from_depth, to_depth, self.keypoint_threshold):
+        match kabsch.estimate(
+            from_pose, to_pose, from_depth, to_depth, self.keypoint_threshold
+        ):
             case rotation, translation:
                 return Result(rotation, translation)
 
@@ -77,10 +78,12 @@ class Estimator:
                 case list(from_poses), list(to_poses), list(from_depths), list(to_depths):
                     results = await loop.run_in_executor(
                         executor,
-                        lambda: list(starmap(
-                            self.__predict_safe,
-                            zip(from_poses, to_poses, from_depths, to_depths)
-                        ))
+                        lambda: list(
+                            starmap(
+                                self.__predict_safe,
+                                zip(from_poses, to_poses, from_depths, to_depths),
+                            )
+                        ),
                     )
 
                 case _:
