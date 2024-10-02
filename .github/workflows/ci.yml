@@ -51,7 +51,7 @@ jobs:
       - name: Lint
         uses: astral-sh/ruff-action@v1.1.0
         with:
-          args: lint
+          args: check
 
   typos:
     name: Check typos
