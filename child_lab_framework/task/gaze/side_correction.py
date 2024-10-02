@@ -1,10 +1,10 @@
 import numpy as np
 
-from .. import pose, face
-from ..face import Eye
-from ..camera.transformation import heuristic
 from ...core.sequence import imputed_with_zeros_reference_inplace
 from ...typing.array import FloatArray2, FloatArray3
+from .. import face, pose
+from ..camera.transformation import heuristic
+from ..face import Eye
 
 
 def eye_normals(eyes: FloatArray3) -> FloatArray2:
@@ -20,27 +20,26 @@ def estimate(
     ceiling_poses: list[pose.Result | None],
     side_poses: list[pose.Result | None],
     side_faces: list[face.Result | None],
-    side_to_ceiling_transformations: list[heuristic.Result | None]
+    side_to_ceiling_transformations: list[heuristic.Result | None],
 ) -> FloatArray3 | None:
     results: list[FloatArray2 | None] = []
 
     for ceiling_pose, side_pose, faces, transformation in zip(
-        ceiling_poses,
-        side_poses,
-        side_faces,
-        side_to_ceiling_transformations
+        ceiling_poses, side_poses, side_faces, side_to_ceiling_transformations
     ):
         if (
-            ceiling_pose is None or
-            side_pose is None or
-            faces is None or
-            transformation is None
+            ceiling_pose is None
+            or side_pose is None
+            or faces is None
+            or transformation is None
         ):
             results.append(None)
             continue
 
         right_eyes_normals = eye_normals(faces.eyes(Eye.Right)[:, :, :3])
-        ceiling_gazes = (right_eyes_normals @ transformation.rotation + transformation.translation.T).view()[:, [0, 1]]
+        ceiling_gazes = (
+            right_eyes_normals @ transformation.rotation + transformation.translation.T
+        ).view()[:, [0, 1]]
 
         results.append(ceiling_gazes)
 

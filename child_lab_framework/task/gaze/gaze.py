@@ -1,17 +1,16 @@
-from dataclasses import dataclass
-from collections.abc import Iterable
 import asyncio
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 
-from . import ceiling_baseline, side_correction
-from .. import pose, face
-from ..camera.transformation import heuristic
+from ...core.algebra import normalized_3d
 from ...core.stream import autostart
 from ...core.video import Properties
-from ...core.algebra import normalized_3d
 from ...typing.array import FloatArray1, FloatArray2, FloatArray3
 from ...typing.stream import Fiber
-
+from .. import face, pose
+from ..camera.transformation import heuristic
+from . import ceiling_baseline, side_correction
 
 # Multi-camera gaze direction estimation without strict algebraic camera models:
 # 1. estimate actor's skeleton on each frame in both cameras
@@ -57,7 +56,7 @@ class Estimator:
         executor: ThreadPoolExecutor,
         ceiling_properties: Properties,
         window_left_properties: Properties,
-        window_right_properties: Properties
+        window_right_properties: Properties,
     ) -> None:
         self.executor = executor
         self.ceiling_properties = ceiling_properties
@@ -71,7 +70,7 @@ class Estimator:
         window_left_pose: pose.Result | None,
         window_right_pose: pose.Result | None,
         window_left_face: face.Result | None,
-        window_right_face: face.Result | None
+        window_right_face: face.Result | None,
     ):
         raise NotImplementedError()
 
@@ -84,16 +83,18 @@ class Estimator:
         window_left_face: list[face.Result | None] | None,
         window_right_face: list[face.Result | None] | None,
         window_left_to_ceiling: list[heuristic.Result | None] | None,
-        window_right_to_ceiling: list[heuristic.Result | None] | None
+        window_right_to_ceiling: list[heuristic.Result | None] | None,
     ) -> list[Result | None] | None:
-        collective_centres, baseline_vectors = ceiling_baseline.estimate(ceiling_pose, None)
+        baseline = ceiling_baseline.estimate(ceiling_pose, None)
+
+        if baseline is None:
+            return None
+
+        collective_centres, baseline_vectors = baseline
 
         left_corrections = (
             side_correction.estimate(
-                ceiling_pose,
-                window_left_pose,
-                window_left_face,
-                window_left_to_ceiling
+                ceiling_pose, window_left_pose, window_left_face, window_left_to_ceiling
             )
             if window_left_pose is not None
             and window_left_face is not None
@@ -106,7 +107,7 @@ class Estimator:
                 ceiling_pose,
                 window_right_pose,
                 window_right_face,
-                window_right_to_ceiling
+                window_right_to_ceiling,
             )
             if window_right_pose is not None
             and window_right_face is not None
@@ -136,11 +137,7 @@ class Estimator:
 
         return [
             Result(centres, vectors)
-            for (centres, vectors)
-            in zip(
-                collective_centres,
-                result_vectors
-            )
+            for (centres, vectors) in zip(collective_centres, result_vectors)
         ]
 
     # NOTE: heuristic idea: actors seen from right and left are in reversed lexicographic order
@@ -160,7 +157,7 @@ class Estimator:
                     window_left_face,
                     window_right_face,
                     window_left_to_ceiling,
-                    window_right_to_ceiling
+                    window_right_to_ceiling,
                 ):
                     results = await loop.run_in_executor(
                         executor,
@@ -171,8 +168,8 @@ class Estimator:
                             window_left_face,
                             window_right_face,
                             window_left_to_ceiling,
-                            window_right_to_ceiling
-                        )
+                            window_right_to_ceiling,
+                        ),
                     )
 
                 case _:

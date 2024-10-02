@@ -1,19 +1,17 @@
 import typing
-import cv2
-import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 
-from ..pose.keypoint import YOLO_SKELETON
+import cv2
+import numpy as np
+
 from ...core.stream import autostart
 from ...core.video import Frame
-from .. import pose, gaze
 from ...typing.stream import Fiber
-
+from .. import gaze, pose
+from ..pose.keypoint import YOLO_SKELETON
 
 type Input = tuple[
-    list[Frame] | None,
-    list[pose.Result | None] | None,
-    list[gaze.Result | None] | None
+    list[Frame] | None, list[pose.Result | None] | None, list[gaze.Result | None] | None
 ]
 
 
@@ -31,7 +29,9 @@ class Visualizer:
 
     executor: ThreadPoolExecutor
 
-    def __init__(self, executor: ThreadPoolExecutor, *, confidence_threshold: float) -> None:
+    def __init__(
+        self, executor: ThreadPoolExecutor, *, confidence_threshold: float
+    ) -> None:
         self.confidence_threshold = confidence_threshold
 
     def __draw_skeleton_and_joints(self, frame: Frame, result: pose.Result) -> Frame:
@@ -49,11 +49,7 @@ class Visualizer:
                 end = typing.cast(cv2.typing.Point, keypoints[j, :-1].astype(int))
 
                 cv2.line(
-                    annotated_frame,
-                    start,
-                    end,
-                    self.BONE_COLOR,
-                    self.BONE_THICKNESS
+                    annotated_frame, start, end, self.BONE_COLOR, self.BONE_THICKNESS
                 )
 
             for keypoint in keypoints:
@@ -67,7 +63,7 @@ class Visualizer:
                     keypoint[:-1],
                     self.JOINT_RADIUS,
                     self.JOINT_COLOR,
-                    -1
+                    -1,
                 )
 
         return annotated_frame
@@ -77,7 +73,9 @@ class Visualizer:
 
         for centre, versor in result.iter():
             start = typing.cast(cv2.typing.Point, centre[[0, 1]].astype(int))
-            end = typing.cast(cv2.typing.Point, (centre[[0, 1]] + 100.0 * versor).astype(int))
+            end = typing.cast(
+                cv2.typing.Point, (centre[[0, 1]] + 100.0 * versor).astype(int)
+            )
 
             cv2.line(annotated_frame, start, end, self.GAZE_COLOR, self.GAZE_THICKNESS)
 

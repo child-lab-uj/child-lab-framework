@@ -3,8 +3,8 @@ from typing import Callable
 from websockets.sync.client import connect
 from ..docker import run
 
-NAME = "test-widget"
-ADDRESS = "127.0.0.1"
+NAME = 'test-widget'
+ADDRESS = '127.0.0.1'
 PORT = 15_001
 
 
@@ -19,8 +19,8 @@ class TestWidget:
 
         sleep(5)
 
-        with connect(f"ws://{ADDRESS}:{PORT}") as ws:
-            ws.send("Hello world!")
+        with connect(f'ws://{ADDRESS}:{PORT}') as ws:
+            ws.send('Hello world!')
             message: str = typing.cast(str, ws.recv())
             return message
 
@@ -28,10 +28,10 @@ class TestWidget:
         self.__close_handle()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     mock_model = TestWidget()
 
     for i in range(5):
-        print("Response:", mock_model())
+        print('Response:', mock_model())
 
     del mock_model

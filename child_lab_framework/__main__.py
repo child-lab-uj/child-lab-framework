@@ -1,9 +1,9 @@
-import sys
 import asyncio
+import sys
+
 from colorama import Fore
 
 from .demo import main
-
 
 if __name__ == '__main__':
     try:

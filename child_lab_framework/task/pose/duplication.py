@@ -1,4 +1,5 @@
 from operator import itemgetter
+
 import torch
 from ultralytics.engine import results as yolo
 
@@ -11,12 +12,7 @@ def jaccard_similarity(box1: torch.Tensor, box2: torch.Tensor) -> torch.Tensor:
     upper_right_x = torch.min(box1[2], box2[2])
     upper_right_y = torch.min(box1[3], box2[3])
 
-    intersection = torch.stack((
-        lower_left_x,
-        lower_left_y,
-        upper_right_x,
-        upper_right_y
-    ))
+    intersection = torch.stack((lower_left_x, lower_left_y, upper_right_x, upper_right_y))
 
     area1 = area(box1)
     area2 = area(box2)
@@ -28,20 +24,18 @@ def jaccard_similarity(box1: torch.Tensor, box2: torch.Tensor) -> torch.Tensor:
 type Similarities = list[tuple[tuple[int, int], float]]
 
 
-def indices_to_delete(boxes: list[torch.Tensor], similarities: Similarities, to_delete: int) -> set[int]:
+def indices_to_delete(
+    boxes: list[torch.Tensor], similarities: Similarities, to_delete: int
+) -> set[int]:
     candidates: set[int] = set()
 
     for _, ((i, j), _) in zip(range(to_delete), similarities):
         match (i in candidates, j in candidates):
             case False, False:
-                candidates.add(
-                    i if boxes[i][4].item() < boxes[j][4].item()
-                    else j
-                )
+                candidates.add(i if boxes[i][4].item() < boxes[j][4].item() else j)
 
             case True, False:
                 candidates.add(j)
-
 
             case False, True:
                 candidates.add(i)
@@ -53,14 +47,19 @@ def indices_to_delete(boxes: list[torch.Tensor], similarities: Similarities, to_
 
 
 def similarities(boxes: list[torch.Tensor]) -> Similarities:
-    return sorted([
-        ((i, j), jaccard_similarity(box_i, box_j).item())
-        for i, box_i in enumerate(boxes)
-        for j, box_j in enumerate(boxes)
-    ], key=itemgetter(1))
+    return sorted(
+        [
+            ((i, j), jaccard_similarity(box_i, box_j).item())
+            for i, box_i in enumerate(boxes)
+            for j, box_j in enumerate(boxes)
+        ],
+        key=itemgetter(1),
+    )
 
 
-def deduplicated(boxes: yolo.Boxes, keypoints: yolo.Keypoints, max_detections: int) -> tuple[yolo.Boxes, yolo.Keypoints]:
+def deduplicated(
+    boxes: yolo.Boxes, keypoints: yolo.Keypoints, max_detections: int
+) -> tuple[yolo.Boxes, yolo.Keypoints]:
     n_detections = len(boxes)
     max_detections = max_detections
 
@@ -70,9 +69,7 @@ def deduplicated(boxes: yolo.Boxes, keypoints: yolo.Keypoints, max_detections: i
     boxes_separated = list(boxes.data)
 
     to_delete = indices_to_delete(
-        boxes_separated,
-        similarities(boxes_separated),
-        n_detections - max_detections
+        boxes_separated, similarities(boxes_separated), n_detections - max_detections
     )
 
     remaining = list(set(range(n_detections)) - to_delete)

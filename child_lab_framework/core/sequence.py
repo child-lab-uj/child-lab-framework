@@ -2,7 +2,7 @@ import typing
 import numpy as np
 
 
-def imputed_with_reference_inplace[T](sequence: list[T | None]) -> list[T]:
+def imputed_with_reference_inplace[T](sequence: list[T | None]) -> list[T] | None:
     if all([element is not None for element in sequence]):
         return typing.cast(list[T], sequence)
 
@@ -27,11 +27,14 @@ def imputed_with_reference_inplace[T](sequence: list[T | None]) -> list[T]:
         for j in range(i):
             sequence[j] = closest_not_none
 
+    if all(element is None for element in sequence):
+        return None
+
     return typing.cast(list[T], sequence)
 
 
 def imputed_with_zeros_reference_inplace[Size, Type](
-    sequence: list[np.ndarray[Size, np.dtype] | None]
+    sequence: list[np.ndarray[Size, np.dtype] | None],
 ) -> list[np.ndarray[Size, np.dtype]] | None:
     first_not_none = None
 
