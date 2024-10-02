@@ -1,21 +1,17 @@
 from collections.abc import AsyncGenerator
-import onnxruntime as onnx
-import numpy as np
-import cv2
-from threading import Thread
 from ultralytics import YOLO as Yolo
 from ultralytics.engine import results as yolo
 import time
-from concurrent.futures import Future, ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor
 import asyncio
 
 from ..util import MODELS_DIR, DEV_DIR
 from ..core.video import Reader, Frame, Perspective
 
 # Fakty:
-    # 1. YOLO zwalnia GIL przy kluczowych obliczeniach
-    # 2. By osiągnąć równoległość, wątki muszą mieć oddzielne instancje modeli
-    # 3. ThreadPoolExecutor dobrze łączy się z asyncio i ma akceptowalny narzut
+# 1. YOLO zwalnia GIL przy kluczowych obliczeniach
+# 2. By osiągnąć równoległość, wątki muszą mieć oddzielne instancje modeli
+# 3. ThreadPoolExecutor dobrze łączy się z asyncio i ma akceptowalny narzut
 
 
 class Detector:
@@ -26,7 +22,9 @@ class Detector:
         self.executor = executor
         self.model = Yolo(MODELS_DIR / 'yolov8x-pose-p6.pt')
 
-    async def stream(self) -> AsyncGenerator[list[yolo.Results] | None, list[Frame] | None]:
+    async def stream(
+        self,
+    ) -> AsyncGenerator[list[yolo.Results] | None, list[Frame] | None]:
         executor = self.executor
         model = self.model
         loop = asyncio.get_running_loop()
@@ -37,8 +35,7 @@ class Detector:
             match (yield results):
                 case list(frames):
                     results = await loop.run_in_executor(
-                        executor,
-                        lambda: model.predict(frames)
+                        executor, lambda: model.predict(frames)
                     )
 
                 case _:
@@ -50,13 +47,15 @@ async def test() -> None:
 
     ceiling_reader = Reader(
         str(DEV_DIR / 'data/short/ceiling.mp4'),
-        perspective=Perspective.CEILING, batch_size=5
+        perspective=Perspective.CEILING,
+        batch_size=5,
     )
     ceiling = ceiling_reader.stream()
 
     window_left_reader = Reader(
         str(DEV_DIR / 'data/short/window_left.mp4'),
-        perspective=Perspective.CEILING, batch_size=5
+        perspective=Perspective.CEILING,
+        batch_size=5,
     )
     window_left = window_left_reader.stream()
 

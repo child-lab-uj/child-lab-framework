@@ -1,15 +1,15 @@
-import numpy as np
 import typing
 
+import numpy as np
+
+from .....typing.array import FloatArray1, FloatArray2, FloatArray3, IntArray1
 from .... import pose
-from .....typing.array import IntArray1, FloatArray1, FloatArray2, FloatArray3
 
 
-def common_points_indicator(points1: FloatArray2, points2: FloatArray2, confidence_threshold: float) -> IntArray1:
-    probabilities = np.minimum(
-        points1.view()[:, -1],
-        points2.view()[:, -1]
-    )
+def common_points_indicator(
+    points1: FloatArray2, points2: FloatArray2, confidence_threshold: float
+) -> IntArray1:
+    probabilities = np.minimum(points1.view()[:, -1], points2.view()[:, -1])
 
     indicator = np.squeeze(np.where(probabilities >= confidence_threshold))
 
@@ -21,7 +21,7 @@ def estimate(
     to_pose: pose.Result,
     from_depth: FloatArray2,
     to_depth: FloatArray2,
-    confidence_threshold: float
+    confidence_threshold: float,
 ) -> tuple[FloatArray2, FloatArray1] | None:
     # NOTE: A quick workaround
     if len(from_pose.actors) != len(to_pose.actors):
@@ -49,8 +49,7 @@ def estimate(
     translation: FloatArray1 = to_center - from_center
 
     cross_covariance: FloatArray2 = np.dot(
-        (from_points_3d - from_center).T,
-        to_points_3d - to_center
+        (from_points_3d - from_center).T, to_points_3d - to_center
     )
 
     u, _, vt = np.linalg.svd(cross_covariance)

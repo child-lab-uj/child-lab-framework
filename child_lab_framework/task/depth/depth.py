@@ -1,32 +1,27 @@
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 import typing
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from typing import Literal
+
+import cv2
 import numpy as np
 import onnxruntime as onnx
-import cv2
 
-from ...core.video import Frame
-from ...core.stream import Fiber
 from ...core import image
-from ...util import MODELS_DIR
+from ...core.video import Frame
 from ...typing.array import FloatArray2, FloatArray3, FloatArray4
+from ...typing.stream import Fiber
+from ...util import MODELS_DIR
 
-
-type OnnxInputDict = dict[
-    Literal['pixel_values'],
-    FloatArray4
-]
-
-type PaddingInfo = tuple[
-    tuple[int, int],
-    tuple[int, int]
-]
+type OnnxInputDict = dict[Literal['pixel_values'], FloatArray4]
+type PaddingInfo = tuple[tuple[int, int], tuple[int, int]]
 
 
 @lru_cache(2, typed=True)
-def padding_info(height: int, width: int, expected_height: int, expected_width: int) -> PaddingInfo:
+def padding_info(
+    height: int, width: int, expected_height: int, expected_width: int
+) -> PaddingInfo:
     y_padding = expected_height - height
     x_padding = expected_width - width
 
@@ -35,14 +30,11 @@ def padding_info(height: int, width: int, expected_height: int, expected_width: 
 
     return (
         (y_padding_half, y_padding - y_padding_half),
-        (x_padding_half, x_padding - x_padding_half)
+        (x_padding_half, x_padding - x_padding_half),
     )
 
 
-def resized(
-    frame: Frame,
-    size: tuple[int, int]
-) -> Frame:
+def resized(frame: Frame, size: tuple[int, int]) -> Frame:
     height, width, _ = frame.shape
     expected_height, expected_width = size
     scale = min(expected_height / height, expected_width / width)
@@ -55,21 +47,15 @@ def resized(
 
 
 def padded(
-    frame: FloatArray3,
-    expected_size: tuple[int, int],
-    color: tuple[float, float, float]
+    frame: FloatArray3, expected_size: tuple[int, int], color: tuple[float, float, float]
 ) -> tuple[FloatArray3, PaddingInfo]:
     padding = padding_info(*frame.shape[:2], *expected_size)
 
     padded_frame = typing.cast(
         FloatArray3,
         cv2.copyMakeBorder(
-            frame,
-            *padding[0],
-            *padding[1],
-            cv2.BORDER_CONSTANT,
-            value=color
-        )
+            frame, *padding[0], *padding[1], cv2.BORDER_CONSTANT, value=color
+        ),
     )
 
     return padded_frame, padding
@@ -101,9 +87,7 @@ class Estimator:
         options.inter_op_num_threads = inter_threads
 
         self.session = onnx.InferenceSession(
-            self.MODEL_PATH,
-            options,
-            providers=[self.EXECUTION_PROVIDER]
+            self.MODEL_PATH, options, providers=[self.EXECUTION_PROVIDER]
         )
 
     def __prepare_input(self, frame: Frame) -> tuple[OnnxInputDict, PaddingInfo]:
@@ -112,13 +96,12 @@ class Estimator:
         padded_frame, padding = padded(
             resized_frame.astype(np.float32),
             self.MODEL_INPUT_SIZE,
-            self.PADDING_BORDER_COLOR
+            self.PADDING_BORDER_COLOR,
         )
 
         # 1, 3, H, W
         packed_frame: FloatArray4 = np.ascontiguousarray(
-            np.transpose(padded_frame, (2, 0, 1))[np.newaxis],
-            dtype=np.float32
+            np.transpose(padded_frame, (2, 0, 1))[np.newaxis], dtype=np.float32
         )
 
         onnx_input: OnnxInputDict = {'pixel_values': packed_frame}
@@ -155,11 +138,7 @@ class Estimator:
             match (yield results):
                 case list(frames):
                     results = await loop.run_in_executor(
-                        executor,
-                        lambda: [
-                            self.predict(frame)
-                            for frame in frames
-                        ]
+                        executor, lambda: [self.predict(frame) for frame in frames]
                     )
 
                 case _:

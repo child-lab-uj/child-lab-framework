@@ -1,6 +1,6 @@
 from sys import argv, stdout
-import cv2
 
+import cv2
 
 if __name__ == '__main__':
     _, source, destination, frame, *_ = argv

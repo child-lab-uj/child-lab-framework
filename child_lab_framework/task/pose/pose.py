@@ -1,24 +1,24 @@
-from functools import lru_cache
+import asyncio
 import typing
 from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
 from enum import IntEnum, auto
+from functools import lru_cache
+
 import numpy as np
 import torch
 import ultralytics
 from ultralytics.engine import results as yolo
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
 
-from ...util import MODELS_DIR
-from ...core.stream import autostart
-from ...core.video import Frame
 from ...core.geometry import area_broadcast
 from ...core.hardware import get_best_device
-from ...typing.array import FloatArray1, FloatArray2, FloatArray3, BoolArray2, IntArray2
+from ...core.stream import autostart
+from ...core.video import Frame
+from ...typing.array import BoolArray2, FloatArray1, FloatArray2, FloatArray3, IntArray2
 from ...typing.stream import Fiber
+from ...util import MODELS_DIR
 from .duplication import deduplicated
 from .keypoint import YoloKeypoint
-
 
 type Box = FloatArray1
 type BatchedBoxes = FloatArray2
@@ -41,9 +41,7 @@ class Result:
     # NOTE heuristic: sitting actors preserve lexicographic order of bounding boxes
     @staticmethod
     def __ordered(
-        boxes: BatchedBoxes,
-        keypoints: BatchedKeypoints,
-        actors: list[Actor]
+        boxes: BatchedBoxes, keypoints: BatchedKeypoints, actors: list[Actor]
     ) -> tuple[BatchedBoxes, BatchedKeypoints, list[Actor]]:
         order = np.lexsort(np.flipud(boxes.T))
 
@@ -54,17 +52,17 @@ class Result:
         return boxes, keypoints, actors
 
     def __init__(
-            self,
-            n_detections: int,
-            boxes: yolo.Boxes,
-            keypoints: yolo.Keypoints,
-            actors: list[Actor]
+        self,
+        n_detections: int,
+        boxes: yolo.Boxes,
+        keypoints: yolo.Keypoints,
+        actors: list[Actor],
     ) -> None:
         self.n_detections = n_detections
         self.boxes, self.keypoints, self.actors = Result.__ordered(
             typing.cast(BatchedBoxes, boxes.data.cpu().numpy()),  # pyright: ignore
             typing.cast(BatchedKeypoints, keypoints.data.cpu().numpy()),  # pyright: ignore
-            actors
+            actors,
         )
 
     def iter(self) -> Iterable[tuple[Actor, Box, Keypoints]]:
@@ -75,8 +73,8 @@ class Result:
     def centres(self) -> FloatArray2:
         keypoints = self.keypoints.view()
         return (
-            keypoints[:, YoloKeypoint.RIGHT_SHOULDER, :2] +
-            keypoints[:, YoloKeypoint.LEFT_SHOULDER, :2]
+            keypoints[:, YoloKeypoint.RIGHT_SHOULDER, :2]
+            + keypoints[:, YoloKeypoint.LEFT_SHOULDER, :2]
         ) / 2.0
 
     @property
@@ -85,23 +83,26 @@ class Result:
         return np.concatenate(self.keypoints)
 
 
-def common_points_indicator(pose1: Result, pose2: Result, probability_threshold: float) -> BoolArray2:
-    joint_probabilities = pose1.keypoints.view()[:, :, 2] * pose2.keypoints.view()[:, :, 2]
+def common_points_indicator(
+    pose1: Result, pose2: Result, probability_threshold: float
+) -> BoolArray2:
+    joint_probabilities = (
+        pose1.keypoints.view()[:, :, 2] * pose2.keypoints.view()[:, :, 2]
+    )
     return joint_probabilities >= probability_threshold
 
 
 def shoulders_depth(pose: Result, depth: FloatArray2) -> FloatArray2:
-    shoulders: IntArray2 = pose.keypoints[:, [YoloKeypoint.LEFT_SHOULDER, YoloKeypoint.RIGHT_SHOULDER], :].astype(np.int32)
+    shoulders: IntArray2 = pose.keypoints[
+        :, [YoloKeypoint.LEFT_SHOULDER, YoloKeypoint.RIGHT_SHOULDER], :
+    ].astype(np.int32)
 
     left_x = shoulders.view()[:, 0, 0]
     left_y = shoulders.view()[:, 0, 1]
     right_x = shoulders.view()[:, 1, 0]
     right_y = shoulders.view()[:, 1, 1]
 
-    return depth.view()[
-        [left_y, right_y],
-        [left_x, right_x]
-    ]
+    return depth.view()[[left_y, right_y], [left_x, right_x]]
 
 
 class Estimator:
@@ -113,15 +114,15 @@ class Estimator:
     executor: ThreadPoolExecutor
     device: torch.device
 
-    def __init__(self, executor: ThreadPoolExecutor, *, max_detections: int, threshold: float) -> None:
+    def __init__(
+        self, executor: ThreadPoolExecutor, *, max_detections: int, threshold: float
+    ) -> None:
         self.max_detections = max_detections
         self.threshold = threshold
 
         self.executor = executor
         self.detector = ultralytics.YOLO(
-            model=self.MODEL_PATH,
-            task='pose',
-            verbose=False
+            model=self.MODEL_PATH, task='pose', verbose=False
         )
 
         self.device = get_best_device()
@@ -133,11 +134,7 @@ class Estimator:
 
         boxes_data = typing.cast(torch.Tensor, boxes.data)
 
-        return int(
-            torch
-            .argmin(area_broadcast(boxes_data))
-            .item()
-        )
+        return int(torch.argmin(area_broadcast(boxes_data)).item())
 
     # TODO: use detector.predict and self.__interpret here
     def predict(self, frame: Frame) -> Result | None:
@@ -145,6 +142,7 @@ class Estimator:
 
     # TODO: JIT
     def __interpret(self, detections: yolo.Results) -> Result | None:
+        # print('[INFO] pose detection')
         boxes = detections.boxes
         keypoints = detections.keypoints
 
@@ -159,12 +157,7 @@ class Estimator:
         if (i := self.__detect_child(boxes)) is not None:
             actors[i] = Actor.CHILD
 
-        return Result(
-            n_detections,
-            boxes,
-            keypoints,
-            actors
-        )
+        return Result(n_detections, boxes, keypoints, actors)
 
     @autostart
     async def stream(self) -> Fiber[list[Frame] | None, list[Result | None] | None]:
@@ -180,7 +173,9 @@ class Estimator:
                 case list(frames):
                     detections = await loop.run_in_executor(
                         executor,
-                        lambda: detector.predict(frames, stream=False, verbose=False, device=device)
+                        lambda: detector.predict(
+                            frames, stream=False, verbose=False, device=device
+                        ),
                     )
 
                     results = [self.__interpret(detection) for detection in detections]

@@ -22,18 +22,31 @@ pandas = "^2.2.2"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"
-black = "^24.4.2"
-pylint = "^3.1.0"
+icecream = "^2.1.3"
+ruff = "^0.6.8"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.ruff]
+exclude = [
+    ".venv",
+    "child_lab_framework/docker",      #
+    "child_lab_framework/interface",   # too chaotic to lint ;v
+    "child_lab_framework/logging",     #
+    "child_lab_framework/experiments",
+]
+line-length = 90
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+docstring-code-format = true
+
 [tool.poe.tasks]
-format = "black ."
+format = "ruff format"
+lint = "ruff check"
 build_whl = "poetry build"
 install_whl = "pip install --force-reinstall dist/*.whl"
 prepare = ["build_whl", "install_whl"]
-
-[tool.poe.tasks.lint]
-shell = "find child_lab_framework -name '*.py' | xargs pylint"

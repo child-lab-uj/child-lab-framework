@@ -1,4 +1,5 @@
 from sys import argv, stdout
+
 import cv2
 
 if __name__ == '__main__':
@@ -17,7 +18,7 @@ if __name__ == '__main__':
         fourcc=cv2.VideoWriter.fourcc(*'mp4v'),
         fps=int(fps),
         frameSize=(int(width), int(height)),
-        isColor=True
+        isColor=True,
     )
 
     skip = int(start * 60 * fps)

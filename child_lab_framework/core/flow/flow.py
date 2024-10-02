@@ -1,17 +1,18 @@
-from collections.abc import Iterable, Mapping
-from operator import itemgetter
-import time
 import sys
-from typing import Any, Callable
-import typing
+import time
+from collections.abc import Callable, Iterable
+
 import networkx as nx
 
 from ...typing.flow import Component
 from ...typing.stream import Fiber
 from .compilation import compiled_flow
 
-
-type ComponentDefinition = tuple[str, Component] | tuple[str, Component, str] | tuple[str, Component, tuple[str, ...]]
+type ComponentDefinition = (
+    tuple[str, Component]
+    | tuple[str, Component, str]
+    | tuple[str, Component, tuple[str, ...]]
+)
 
 
 class Machinery:

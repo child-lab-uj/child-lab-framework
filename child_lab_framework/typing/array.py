@@ -1,4 +1,5 @@
 from typing import Literal
+
 import numpy
 
 type FloatArray1 = numpy.ndarray[Literal[1], numpy.dtype[numpy.float32]]

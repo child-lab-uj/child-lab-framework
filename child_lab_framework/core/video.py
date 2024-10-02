@@ -12,8 +12,8 @@ from .stream import autostart
 
 
 class Format(Enum):
-    AVI = "mjpg"
-    MP4 = "mp4v"
+    AVI = 'mjpg'
+    MP4 = 'mp4v'
 
 
 class Perspective(IntEnum):
@@ -38,9 +38,7 @@ class Reader:
     decoder: cv2.VideoCapture
     properties: Properties
 
-    def __init__(
-        self, source: str, *, perspective: Perspective, batch_size: int
-    ) -> None:
+    def __init__(self, source: str, *, perspective: Perspective, batch_size: int) -> None:
         self.source = source
         self.batch_size = batch_size
 
@@ -125,9 +123,6 @@ class Writer:
 def cropped(frame: Frame, boxes: FloatArray2) -> list[Frame]:
     boxes_truncated: IntArray2 = boxes.astype(np.int32)
 
-    crops = [
-        frame[box[0]:box[2], box[1]:box[3]]
-        for box in list(boxes_truncated)
-    ]
+    crops = [frame[box[0] : box[2], box[1] : box[3]] for box in list(boxes_truncated)]
 
     return crops

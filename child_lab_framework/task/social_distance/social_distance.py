@@ -1,14 +1,15 @@
 import asyncio
-from pathlib import Path
-from typing import TextIO
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from scipy.spatial.distance import pdist
-import numpy as np
+from pathlib import Path
+from typing import TextIO
 
-from .. import pose
+import numpy as np
+from scipy.spatial.distance import pdist
+
 from ...typing.array import FloatArray2
 from ...typing.stream import Fiber
+from .. import pose
 
 
 @dataclass
@@ -29,7 +30,9 @@ class Estimator:
         distances = pdist(centres.T)
         return Result(poses.actors, distances)
 
-    async def stream(self) -> Fiber[list[pose.Result | None] | None, list[Result | None] | None]:
+    async def stream(
+        self,
+    ) -> Fiber[list[pose.Result | None] | None, list[Result | None] | None]:
         loop = asyncio.get_running_loop()
         executor = self.executor
 
@@ -41,11 +44,9 @@ class Estimator:
                     results = await loop.run_in_executor(
                         executor,
                         lambda: [
-                            self.predict(pose)
-                            if pose is not None
-                            else None
+                            self.predict(pose) if pose is not None else None
                             for pose in poses
-                        ]
+                        ],
                     )
 
                 case _:
@@ -77,11 +78,7 @@ class FileLogger:
             match (yield):
                 case list(results):
                     for result in results:
-                        distance = (
-                            result.distances[0]
-                            if result is not None
-                            else np.nan
-                        )
+                        distance = result.distances[0] if result is not None else np.nan
 
                         destination.write(f'{frame}{DELIMITER}{distance}\n')
                         frame += 1

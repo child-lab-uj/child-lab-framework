@@ -1,11 +1,21 @@
 from .pose import (
-    Result,
     Actor,
-    Estimator,
-    Box,
     BatchedBoxes,
-    Keypoints,
     BatchedKeypoints,
+    Box,
+    Estimator,
+    Keypoints,
+    Result,
     common_points_indicator,
-    shoulders_depth
 )
+
+__all__ = [
+    'Actor',
+    'BatchedBoxes',
+    'BatchedKeypoints',
+    'Box',
+    'Estimator',
+    'Keypoints',
+    'Result',
+    'common_points_indicator',
+]
