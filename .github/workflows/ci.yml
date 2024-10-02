@@ -43,14 +43,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Ruff
+      - name: Check format
         uses: astral-sh/ruff-action@v1.1.0
+        with:
+          args: format --check
 
       - name: Lint
-        run: ruff check
-
-      - name: Check format
-        run: ruff format --check
+        uses: astral-sh/ruff-action@v1.1.0
+        with:
+          args: lint
 
   typos:
     name: Check typos
