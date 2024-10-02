@@ -1,0 +1,6 @@
+[default.extend-words]
+asend = "asend"
+Pn = "Pn"       # OpenCV's `solvePnP` :v
+
+[files]
+extend-exclude = ["dev/*", "child_lab_framework/experiments/*"]

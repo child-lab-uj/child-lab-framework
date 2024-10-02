@@ -18,7 +18,7 @@ from . import ceiling_baseline, side_correction
 # 2. compute a ceiling baseline vector (perpendicular to shoulder line in a ceiling camera)
 # 3. detect actor's face on the other camera
 # 4. compute the offset-baseline vector (normal to face, Wim's MediaPipe solution')
-# 5. Rotate it to the celing camera's space and combine with the ceiling baseline
+# 5. Rotate it to the ceiling camera's space and combine with the ceiling baseline
 
 
 type Input = tuple[
