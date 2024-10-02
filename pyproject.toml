@@ -24,6 +24,7 @@ pandas = "^2.2.2"
 mtcnn = "^0.1.1"
 ml-dtypes = "0.4.0"                                           # installing higher version fails because it requires NumPy >= 2.1 (see issue #7)
 tensorflow = "^2.17.0"
+mini-face = ">=0.1.0"
 depth-pro = { git = "git@github.com:apple/ml-depth-pro.git" }
 
 [tool.poetry.group.dev.dependencies]

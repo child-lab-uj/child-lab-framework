@@ -1262,6 +1262,22 @@ protobuf = ">=4.25.3,<5"
 sounddevice = ">=0.4.4"
 
 [[package]]
+name = "mini-face"
+version = "0.1.1"
+description = "A minimalist Python wrapper for OpenFace library"
+optional = false
+python-versions = ">=3.12"
+files = [
+    {file = "mini_face-0.1.1-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:e56b459b36e9a651c5be70d6ef2ce1672fd7540528534a74107c296a0a61a15e"},
+    {file = "mini_face-0.1.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:abebd92de0ae77d3a225674d8ee4bb74ebf227d3c3924ad08f7f0cfc3fd0cf66"},
+    {file = "mini_face-0.1.1-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:79ff57d5debfd3909c21bb2b807016bfd98e03f59d9fc4b57ae743e2510505bd"},
+    {file = "mini_face-0.1.1-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:fb2d8840353ccf3491468d07487937a47bf58b4c632a5cefc9d463f7c7777285"},
+]
+
+[package.dependencies]
+numpy = ">=1.21"
+
+[[package]]
 name = "ml-dtypes"
 version = "0.4.0"
 description = ""
@@ -3185,4 +3201,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "b78373ccb38ce9cebd4d5eb6679ca0e290c20db501ec97f0f9d96d8f219f280c"
+content-hash = "f78c2b21f844024c8851bed1363f5a5249035e9b8e06b824363cea0652717698"

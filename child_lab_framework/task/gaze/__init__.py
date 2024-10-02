@@ -1,4 +1,4 @@
 from . import ceiling_projection
-from .mini_face import Estimator, Result
+from .gaze import Estimator, Result
 
-__all__ = ['ceiling_projection', 'Estimator', 'Result']
+__all__ = ["ceiling_projection", "Estimator", "Result"]
