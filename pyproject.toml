@@ -2,7 +2,10 @@
 name = "child-lab-framework"
 version = "0.1.0"
 description = "UJ ChildLab Computer Vision project"
-authors = ["Your Name <you@example.com>"]
+authors = [
+    "Jan Smółka jp.smolka@gmail.com",
+    "Igor Urbanik igorurbanik23@gmail.com",
+]
 readme = "README.md"
 packages = [{ include = "child_lab_framework" }]
 
