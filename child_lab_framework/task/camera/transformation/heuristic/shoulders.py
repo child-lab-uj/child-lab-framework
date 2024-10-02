@@ -15,7 +15,7 @@ def anchor_person_index(n_people: int, perspective: Perspective) -> int:
             return 0
 
         case _:
-            assert False, 'Unreachable'
+            assert False, 'unreachable'
 
 
 # TODO: Add depth

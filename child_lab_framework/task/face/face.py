@@ -18,117 +18,117 @@ type Input = tuple[list[Frame] | None, list[pose.Result | None] | None]
 
 @dataclass
 class Result:
-	boxes: FloatArray2
-	confidences: FloatArray1
+    boxes: FloatArray2
+    confidences: FloatArray1
 
 
 class Estimator:
-	threshold: float
-	detector: mtcnn.Detector
+    threshold: float
+    detector: mtcnn.Detector
 
-	executor: ThreadPoolExecutor
+    executor: ThreadPoolExecutor
 
-	def __init__(self, executor: ThreadPoolExecutor, *, threshold: float) -> None:
-		self.executor = executor
-		self.threshold = threshold
-		self.detector = mtcnn.Detector(threshold=threshold)
+    def __init__(self, executor: ThreadPoolExecutor, *, threshold: float) -> None:
+        self.executor = executor
+        self.threshold = threshold
+        self.detector = mtcnn.Detector(threshold=threshold)
 
-	def predict(self, frame: Frame, poses: pose.Result) -> Result | None:
-		detector = self.detector
-		threshold = self.threshold
+    def predict(self, frame: Frame, poses: pose.Result) -> Result | None:
+        detector = self.detector
+        threshold = self.threshold
 
-		face_boxes: list[FloatArray1 | None] = []
-		confidences: list[list[float] | None] = []
+        face_boxes: list[FloatArray1 | None] = []
+        confidences: list[list[float] | None] = []
 
-		box: FloatArray1
-		keypoints: FloatArray2
-		i: int
-		face_box: FloatArray1
-		face_box_x1: float
-		face_box_y1: float
-		face_box_width: float
-		face_box_height: float
-		face_box_x2: float
-		face_box_y2: float
-		nose_x: float
-		nose_y: float
+        box: FloatArray1
+        keypoints: FloatArray2
+        i: int
+        face_box: FloatArray1
+        face_box_x1: float
+        face_box_y1: float
+        face_box_width: float
+        face_box_height: float
+        face_box_x2: float
+        face_box_y2: float
+        nose_x: float
+        nose_y: float
 
-		for box, keypoints in zip(poses.boxes, poses.keypoints):
-			box_x1, box_y1, box_x2, box_y2 = box.astype(np.int32)[:4]
-			actor_cropped = frame[box_y1:box_y2, box_x1:box_x2, ...]
+        for box, keypoints in zip(poses.boxes, poses.keypoints):
+            box_x1, box_y1, box_x2, box_y2 = box.astype(np.int32)[:4]
+            actor_cropped = frame[box_y1:box_y2, box_x1:box_x2, ...]
 
-			match detector.predict(actor_cropped):
-				case mtcnn.Result(boxes, confs, _) if np.max(confs) >= threshold:
-					for i in np.flip(np.argsort(confs)):
-						face_box = boxes[i]
-						face_box_x1, face_box_y1, face_box_width, face_box_height = (
-							face_box
-						)
-						face_box_x2 = face_box_x1 + face_box_width
-						face_box_y2 = face_box_y1 + face_box_height
+            match detector.predict(actor_cropped):
+                case mtcnn.Result(boxes, confs, _) if np.max(confs) >= threshold:
+                    for i in np.flip(np.argsort(confs)):
+                        face_box = boxes[i]
+                        face_box_x1, face_box_y1, face_box_width, face_box_height = (
+                            face_box
+                        )
+                        face_box_x2 = face_box_x1 + face_box_width
+                        face_box_y2 = face_box_y1 + face_box_height
 
-						nose_x, nose_y, *_ = keypoints[YoloKeypoint.NOSE]
-						nose_x -= box_x1
-						nose_y -= box_y1
+                        nose_x, nose_y, *_ = keypoints[YoloKeypoint.NOSE]
+                        nose_x -= box_x1
+                        nose_y -= box_y1
 
-						if (
-							nose_x < face_box_x1
-							or face_box_x2 < nose_x
-							or nose_y < face_box_y1
-							or face_box_y2 < nose_y
-						):
-							continue
+                        if (
+                            nose_x < face_box_x1
+                            or face_box_x2 < nose_x
+                            or nose_y < face_box_y1
+                            or face_box_y2 < nose_y
+                        ):
+                            continue
 
-						break
-					else:
-						continue
+                        break
+                    else:
+                        continue
 
-					face_box[0] += box_x1
-					face_box[1] += box_y1
-					face_box[2] = face_box_x2 + box_x1
-					face_box[3] = face_box_y2 + box_y1
+                    face_box[0] += box_x1
+                    face_box[1] += box_y1
+                    face_box[2] = face_box_x2 + box_x1
+                    face_box[3] = face_box_y2 + box_y1
 
-					face_boxes.append(face_box)
+                    face_boxes.append(face_box)
 
-					confidence = confs[i]
-					confidences.append(confidence)
+                    confidence = confs[i]
+                    confidences.append(confidence)
 
-				case _:
-					face_boxes.append(None)
-					confidences.append(None)
+                case _:
+                    face_boxes.append(None)
+                    confidences.append(None)
 
-		if len(face_boxes) == 0 or len(confidences) == 0:
-			return None
+        if len(face_boxes) == 0 or len(confidences) == 0:
+            return None
 
-		match (
-			imputed_with_reference_inplace(face_boxes),
-			imputed_with_reference_inplace(confidences),
-		):
-			case list(face_boxes_imputed), list(confidences_imputed):
-				return Result(np.stack(face_boxes_imputed), np.stack(confidences_imputed))
+        match (
+            imputed_with_reference_inplace(face_boxes),
+            imputed_with_reference_inplace(confidences),
+        ):
+            case list(face_boxes_imputed), list(confidences_imputed):
+                return Result(np.stack(face_boxes_imputed), np.stack(confidences_imputed))
 
-			case _:
-				return None
+            case _:
+                return None
 
-	def __predict_safe(self, frame: Frame, poses: pose.Result | None) -> Result | None:
-		if poses is None:
-			return None
+    def __predict_safe(self, frame: Frame, poses: pose.Result | None) -> Result | None:
+        if poses is None:
+            return None
 
-		return self.predict(frame, poses)
+        return self.predict(frame, poses)
 
-	async def stream(self) -> Fiber[Input | None, list[Result | None] | None]:
-		executor = self.executor
-		loop = asyncio.get_running_loop()
+    async def stream(self) -> Fiber[Input | None, list[Result | None] | None]:
+        executor = self.executor
+        loop = asyncio.get_running_loop()
 
-		results: list[Result | None] | None = None
+        results: list[Result | None] | None = None
 
-		while True:
-			match (yield results):
-				case list(frames), list(poses):
-					results = await loop.run_in_executor(
-						executor,
-						lambda: list(starmap(self.__predict_safe, zip(frames, poses))),
-					)
+        while True:
+            match (yield results):
+                case list(frames), list(poses):
+                    results = await loop.run_in_executor(
+                        executor,
+                        lambda: list(starmap(self.__predict_safe, zip(frames, poses))),
+                    )
 
-				case _:
-					results = None
+                case _:
+                    results = None
