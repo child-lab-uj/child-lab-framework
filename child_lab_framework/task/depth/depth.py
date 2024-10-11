@@ -7,8 +7,11 @@ from typing import Literal
 import cv2
 import numpy as np
 import onnxruntime as onnx
+import torch
+from torchvision.transforms import Compose, Lambda, Normalize, ConvertImageDtype
+from depth_pro import depth_pro as dp
 
-from ...core import image
+from ...core import image, hardware
 from ...core.video import Frame
 from ...typing.array import FloatArray2, FloatArray3, FloatArray4
 from ...typing.stream import Fiber
@@ -71,14 +74,34 @@ def to_frame(depth_map: FloatArray2) -> Frame:
 class Estimator:
     EXECUTION_PROVIDER = 'CPUExecutionProvider'
     MODEL_PATH = str(MODELS_DIR / 'metric3d-vit-small.onnx')
+    DEPTH_PRO_PATH = str(MODELS_DIR / 'depth_pro.pt')
     MODEL_INPUT_SIZE = (616, 1064)
     PADDING_BORDER_COLOR = (123.675, 116.28, 103.53)
 
     executor: ThreadPoolExecutor
+    device: torch.device
     session: onnx.InferenceSession
+    model: dp.DepthPro
+    transform: Compose
 
     def __init__(self, executor: ThreadPoolExecutor, *, inter_threads: int) -> None:
+        device = hardware.get_best_device()
+
         self.executor = executor
+        self.device = device
+
+        config = dp.DEFAULT_MONODEPTH_CONFIG_DICT
+        config.checkpoint_uri = self.DEPTH_PRO_PATH
+
+        self.model, _ = dp.create_model_and_transforms(config, device)
+
+        self.transform = Compose(
+            [
+                ConvertImageDtype(torch.float32),
+                Lambda(lambda x: x.to(device)),
+                Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+            ]
+        )
 
         options = onnx.SessionOptions()
         options.execution_mode = onnx.ExecutionMode.ORT_PARALLEL
@@ -109,15 +132,36 @@ class Estimator:
         return onnx_input, padding
 
     def predict(self, frame: Frame) -> FloatArray2:
-        onnx_input, padding_info = self.__prepare_input(frame)
-        results = self.session.run(None, onnx_input)
+        # onnx_input, padding_info = self.__prepare_input(frame)
+        # results = self.session.run(None, onnx_input)
 
-        height, width, _ = frame.shape
-        result_rows = slice(padding_info[0][0], height - padding_info[0][1])
-        result_columns = slice(padding_info[1][0], width - padding_info[1][1])
+        # height, width, _ = frame.shape
+        # result_rows = slice(padding_info[0][0], height - padding_info[0][1])
+        # result_columns = slice(padding_info[1][0], width - padding_info[1][1])
 
-        depth: FloatArray2 = results[0].squeeze()[result_rows, result_columns]
-        depth = image.resized(depth, height, width)
+        # depth: FloatArray2 = results[0].squeeze()[result_rows, result_columns]
+        # depth = image.resized(depth, height, width)
+
+
+        depth_pro_input: torch.Tensor = self.transform(torch.from_numpy(np.transpose(
+            frame.copy(),
+            (2, 0, 1)
+        )))
+
+        depth_pro_result = self.model.infer(depth_pro_input)
+        # depth_pro_depth = image.resized(depth_pro_result['depth'].numpy(), height, width)
+        # depth_pro_focal_length = depth_pro_result['focallength_px'].numpy()
+
+        # difference = depth - depth_pro_depth
+
+        # print(f'Estimated focal length: {depth_pro_focal_length}')
+        # print()
+        # print('Prediction difference:')
+        # print(f'min: {difference.min()}')
+        # print(f'max: {difference.max()}')
+        # print(f'mean: {difference.mean()}')
+        # print()
+        # print()
 
         # NOTE: Not needed now
         # normals: FloatArray3 = np.transpose(
