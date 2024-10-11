@@ -11,8 +11,7 @@ from ...typing.stream import Fiber
 from ...typing.transformation import Transformation
 from .. import face, pose
 from ..camera.transformation import heuristic
-from . import ceiling_baseline
-from . import mini_face as mf
+from . import ceiling_baseline, gaze
 
 # Multi-camera gaze direction estimation without strict algebraic camera models:
 # 1. estimate actor's skeleton on each frame in both cameras
@@ -38,6 +37,7 @@ type Input = tuple[
 class Result:
     centres: FloatArray2
     directions: FloatArray2
+    was_corrected: bool
 
 
 class Estimator:
@@ -65,8 +65,8 @@ class Estimator:
     def predict(
         self,
         ceiling_pose: pose.Result,
-        window_left_gaze: mf.Result | None,
-        window_right_gaze: mf.Result | None,
+        window_left_gaze: gaze.Result | None,
+        window_right_gaze: gaze.Result | None,
         window_left_to_ceiling: Transformation | None,
         window_right_to_ceiling: Transformation | None,
     ) -> Result:
@@ -83,14 +83,13 @@ class Estimator:
         correction_count = int(correct_from_left) + int(correct_from_right)
 
         if correction_count == 0:
-            return Result(centres, directions)
+            return Result(centres, directions, False)
 
         correction_weight = self.COLLECTIVE_CORRECTION_WEIGHT / float(correction_count)
         baseline_weight = self.BASELINE_WEIGHT
 
-        if correction_count > 0.0:
-            centres *= baseline_weight
-            directions *= baseline_weight
+        centres *= baseline_weight
+        directions *= baseline_weight
 
         # Use np.einsum('ij,kmj->kmi') for transformation without simplification (i.e. on n_people x 2 x 3 arrays)
         # cannot reuse `correct_from_left` because the type checker gets confused
@@ -136,13 +135,13 @@ class Estimator:
             centres += correction_weight * right_centre_correction
             directions += correction_weight * right_direction_correction
 
-        return Result(centres, directions)
+        return Result(centres, directions, True)
 
     def __predict_safe(
         self,
         ceiling_pose: pose.Result | None,
-        window_left_gaze: mf.Result | None,
-        window_right_gaze: mf.Result | None,
+        window_left_gaze: gaze.Result | None,
+        window_right_gaze: gaze.Result | None,
         window_left_to_ceiling: Transformation | None,
         window_right_to_ceiling: Transformation | None,
     ) -> Result | None:

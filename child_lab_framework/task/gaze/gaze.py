@@ -1,6 +1,6 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import starmap
 
 import cv2
@@ -26,6 +26,7 @@ class Result2d:
 class Result:
     eyes: FloatArray3
     directions: FloatArray3
+    was_projected: bool = field(default=False)
 
     # A prototype, currently unused method which can be used to display gaze estimation on side views
     def projected(self, fx: float, fy: float, cx: float, cy: float) -> Result2d:

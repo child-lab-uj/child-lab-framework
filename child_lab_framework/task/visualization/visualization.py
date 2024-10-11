@@ -16,7 +16,6 @@ from ..pose.keypoint import YOLO_SKELETON
 type Input = tuple[
     list[Frame] | None,
     list[pose.Result | None] | None,
-    # list[face.Result | None] | None,
     list[ceiling_projection.Result | None] | None,
 ]
 
@@ -26,6 +25,7 @@ class Visualizer:
     BONE_THICKNESS = 2
 
     GAZE_COLOR = (255, 255, 0)
+    CORRECTED_GAZE_COLOR = (255, 0, 0)
     GAZE_THICKNESS = 5
 
     JOINT_RADIUS = 5
@@ -66,7 +66,9 @@ class Visualizer:
 
                 keypoint = typing.cast(cv2.typing.Point, keypoint.astype(np.int32))
 
-                cv2.circle(frame, keypoint[:-1], self.JOINT_RADIUS, self.JOINT_COLOR, -1)
+                cv2.circle(
+                    frame, keypoint[:-1], self.JOINT_RADIUS, self.JOINT_COLOR, -1
+                )
 
         return frame
 
@@ -76,24 +78,27 @@ class Visualizer:
         starts = result.centres
         ends = starts + 100.0 * result.directions
 
-        print('Gaze to draw:')
-        print(f'{starts = }')
-        print(f'{ends = }')
+        print("Gaze to draw:")
+        print(f"{starts = }")
+        print(f"{ends = }")
 
         start: FloatArray1
         end: FloatArray1
+
+        color = self.CORRECTED_GAZE_COLOR if result.was_corrected else self.GAZE_COLOR
 
         for start, end in zip(starts, ends):
             cv2.line(
                 frame,
                 typing.cast(cv2.typing.Point, start.astype(np.int32)),
                 typing.cast(cv2.typing.Point, end.astype(np.int32)),
-                self.GAZE_COLOR,
+                color,
                 self.GAZE_THICKNESS,
             )
 
         return frame
 
+    # TODO: reintroduce when nullable fields in data packets are supported
     # def __draw_face_box(self, frame: Frame, result: face.Result) -> Frame:
     # 	box: IntArray1
     # 	for box in result.boxes:
