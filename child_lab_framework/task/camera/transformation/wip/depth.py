@@ -1,12 +1,12 @@
-import torch
-import numpy as np
-import time
-import cv2
-import onnxruntime as ort
-from typing import List, Tuple
 import threading
-from pyntcloud import PyntCloud
+import time
+
+import cv2
+import numpy as np
+import onnxruntime as ort
 import pandas as pd
+import torch
+from pyntcloud import PyntCloud
 
 
 class Metric3D:
@@ -74,7 +74,7 @@ class Metric3D:
         print(f'Metric3D runtime: {time.time() - start_time}')
         return depth_image, point_cloud
 
-    def prepare_input(self, image_rgb: np.ndarray) -> Tuple[torch.Tensor, List[int]]:
+    def prepare_input(self, image_rgb: np.ndarray) -> tuple[torch.Tensor, list[int]]:
         input_size = (616, 1064)
 
         h, w = image_rgb.shape[:2]

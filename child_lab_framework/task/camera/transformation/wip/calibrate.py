@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+
 import cv2
 import numpy as np
 
@@ -8,8 +8,8 @@ import numpy as np
 class Camera:
     camera_matrix: np.ndarray
     distortion_coefficients: np.ndarray
-    rotation_vectors: List[np.ndarray]
-    translation_vectors: List[np.ndarray]
+    rotation_vectors: list[np.ndarray]
+    translation_vectors: list[np.ndarray]
 
 
 def nth_frame(video_path: str, n: int):
