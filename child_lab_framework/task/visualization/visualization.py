@@ -66,9 +66,7 @@ class Visualizer:
 
                 keypoint = typing.cast(cv2.typing.Point, keypoint.astype(np.int32))
 
-                cv2.circle(
-                    frame, keypoint[:-1], self.JOINT_RADIUS, self.JOINT_COLOR, -1
-                )
+                cv2.circle(frame, keypoint[:-1], self.JOINT_RADIUS, self.JOINT_COLOR, -1)
 
         return frame
 
@@ -78,9 +76,9 @@ class Visualizer:
         starts = result.centres
         ends = starts + 100.0 * result.directions
 
-        print("Gaze to draw:")
-        print(f"{starts = }")
-        print(f"{ends = }")
+        print('Gaze to draw:')
+        print(f'{starts = }')
+        print(f'{ends = }')
 
         start: FloatArray1
         end: FloatArray1
