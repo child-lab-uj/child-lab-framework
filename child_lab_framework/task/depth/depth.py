@@ -5,7 +5,7 @@ from typing import Literal
 import numpy as np
 import torch
 from depth_pro import depth_pro as dp
-from torchvision.transforms import Compose, ConvertImageDtype, Normalize, Resize
+from torchvision.transforms import Compose, ConvertImageDtype, Lambda, Normalize, Resize
 
 from ...core.video import Frame, Properties
 from ...logging import Logger
@@ -38,11 +38,28 @@ class Estimator:
     from_model: Compose
 
     def __init__(
-        self, executor: ThreadPoolExecutor, device: torch.device, *, input: Properties
+        self,
+        executor: ThreadPoolExecutor,
+        device: torch.device,
+        *,
+        input: Properties,
     ) -> None:
         self.executor = executor
         self.device = device
         self.input = input
+
+        config = dp.DEFAULT_MONODEPTH_CONFIG_DICT
+        config.checkpoint_uri = self.MODEL_PATH
+
+        self.model, _ = dp.create_model_and_transforms(config, device)
+
+        self.transform = Compose(
+            [
+                ConvertImageDtype(torch.float32),
+                Lambda(lambda x: x.to(device)),
+                Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+            ]
+        )
 
         config = dp.DEFAULT_MONODEPTH_CONFIG_DICT
         config.checkpoint_uri = self.MODEL_PATH
