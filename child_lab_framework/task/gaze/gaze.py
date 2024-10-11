@@ -64,6 +64,7 @@ type Input = tuple[list[Frame], list[face.Result | None] | None]
 
 class Estimator:
     MODELS_DIR = str(MODELS_ROOT / 'mini_face')
+    print(MODELS_DIR)
 
     properties: Properties
 
