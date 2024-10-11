@@ -33,7 +33,7 @@ type Input = tuple[
 ]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Result:
     centres: FloatArray2
     directions: FloatArray2
