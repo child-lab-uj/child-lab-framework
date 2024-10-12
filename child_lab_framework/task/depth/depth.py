@@ -5,7 +5,7 @@ from typing import Literal
 import numpy as np
 import torch
 from depth_pro import depth_pro as dp
-from torchvision.transforms import Compose, ConvertImageDtype, Lambda, Normalize, Resize
+from torchvision.transforms import Compose, ConvertImageDtype, Normalize, Resize
 
 from ...core.video import Frame, Properties
 from ...logging import Logger
@@ -53,10 +53,9 @@ class Estimator:
 
         self.model, _ = dp.create_model_and_transforms(config, device)
 
-        self.transform = Compose(
+        self.to_model = Compose(
             [
                 ConvertImageDtype(torch.float32),
-                Lambda(lambda x: x.to(device)),
                 Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
             ]
         )
