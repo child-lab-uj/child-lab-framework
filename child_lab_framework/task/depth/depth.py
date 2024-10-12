@@ -2,7 +2,6 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
 
-import colorama
 import numpy as np
 import torch
 from depth_pro import depth_pro as dp
@@ -57,8 +56,6 @@ class Estimator:
         )
 
         self.from_model = Compose([Resize((input.height, input.width))])
-
-        print(colorama.Fore.RED + 'Initialized depth model' + colorama.Fore.RESET)
 
     def predict(self, frame: Frame) -> FloatArray2:
         # Frame's immutability causes runtime warnings (Probably to fix in the issue #6)
