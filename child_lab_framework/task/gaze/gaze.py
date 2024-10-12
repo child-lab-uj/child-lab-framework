@@ -63,7 +63,7 @@ type Input = tuple[list[Frame], list[face.Result | None] | None]
 
 
 class Estimator:
-    MODELS_DIR = str(MODELS_ROOT / 'mini_face')
+    MODELS_DIR = str(MODELS_ROOT / 'model')
     print(MODELS_DIR)
 
     properties: Properties
@@ -95,7 +95,7 @@ class Estimator:
 
         cx = self.optical_center_x
         cy = self.optical_center_y
-        center_shift = np.array((cx, cy), dtype=np.float32)
+        center_shift = np.array((cx, cy, 0.0), dtype=np.float32).reshape(1, 1, -1)
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # type: ignore
 
