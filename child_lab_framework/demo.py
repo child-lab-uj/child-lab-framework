@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 
+from .core import hardware
 from .core.flow import Machinery
 from .core.video import Format, Perspective, Reader, Writer
 from .task import depth, face, gaze, pose, social_distance
@@ -11,6 +12,7 @@ BATCH_SIZE = 5
 
 async def main() -> None:
     executor = ThreadPoolExecutor(max_workers=8)
+    device = hardware.get_best_device()
 
     ceiling_reader = Reader(
         'dev/data/ultra_short/ceiling.mp4',
@@ -32,14 +34,16 @@ async def main() -> None:
         like=ceiling_reader.properties,
     )
 
-    ceiling_depth_estimator = depth.Estimator(executor, input=ceiling_reader.properties)
+    ceiling_depth_estimator = depth.Estimator(
+        executor, device, input=ceiling_reader.properties
+    )
 
     window_left_depth_estimator = depth.Estimator(
-        executor, input=window_left_reader.properties
+        executor, device, input=window_left_reader.properties
     )
 
     window_right_depth_estimator = depth.Estimator(
-        executor, input=window_right_reader.properties
+        executor, device, input=window_right_reader.properties
     )
 
     ceiling_pose_estimator = pose.Estimator(executor, max_detections=2, threshold=0.5)

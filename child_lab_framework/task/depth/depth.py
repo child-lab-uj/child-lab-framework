@@ -8,7 +8,6 @@ import torch
 from depth_pro import depth_pro as dp
 from torchvision.transforms import Compose, ConvertImageDtype, Normalize, Resize
 
-from ...core import hardware
 from ...core.video import Frame, Properties
 from ...typing.array import FloatArray2
 from ...typing.stream import Fiber
@@ -38,9 +37,9 @@ class Estimator:
     to_model: Compose
     from_model: Compose
 
-    def __init__(self, executor: ThreadPoolExecutor, *, input: Properties) -> None:
-        device = hardware.get_best_device()  # TODO: pass device along with the executor
-
+    def __init__(
+        self, executor: ThreadPoolExecutor, device: torch.device, *, input: Properties
+    ) -> None:
         self.executor = executor
         self.device = device
         self.input = input
