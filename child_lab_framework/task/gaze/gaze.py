@@ -77,7 +77,15 @@ class Estimator:
 
     executor: ThreadPoolExecutor
 
-    def __init__(self, executor: ThreadPoolExecutor, *, properties: Properties) -> None:
+    def __init__(
+        self,
+        executor: ThreadPoolExecutor,
+        *,
+        properties: Properties,
+        wild: bool = False,
+        multiple_views: bool = False,
+        limit_angles: bool = False,
+    ) -> None:
         self.executor = executor
 
         self.properties = properties
@@ -89,6 +97,7 @@ class Estimator:
             mode=mf.PredictionMode.VIDEO,
             focal_length=calibration.focal_length,
             optical_center=calibration.optical_center,
+            fps=properties.fps,
             models_directory=self.MODELS_DIR,
         )
 

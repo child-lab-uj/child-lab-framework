@@ -154,14 +154,28 @@ async def main() -> None:
         like=ceiling_reader.properties,
     )
 
-    depth_estimator = depth.Estimator(executor, device, input=ceiling_reader.properties)
+    depth_estimator = depth.Estimator(
+        executor,
+        device,
+        input=ceiling_reader.properties,
+    )
 
-    ceiling_pose_estimator = pose.Estimator(executor, max_detections=2, threshold=0.5)
+    ceiling_pose_estimator = pose.Estimator(
+        executor,
+        max_detections=2,
+        threshold=0.5,
+    )
 
-    window_left_pose_estimator = pose.Estimator(executor, max_detections=2, threshold=0.5)
+    window_left_pose_estimator = pose.Estimator(
+        executor,
+        max_detections=2,
+        threshold=0.5,
+    )
 
     window_right_pose_estimator = pose.Estimator(
-        executor, max_detections=2, threshold=0.5
+        executor,
+        max_detections=2,
+        threshold=0.5,
     )
 
     window_left_to_ceiling_transformation_estimator = heuristic.Estimator(
@@ -185,11 +199,15 @@ async def main() -> None:
     window_left_gaze_estimator = gaze.Estimator(
         executor,
         properties=window_left_reader.properties,
+        wild=False,
+        limit_angles=True,
     )
 
     window_right_gaze_estimator = gaze.Estimator(
         executor,
         properties=window_right_reader.properties,
+        wild=True,
+        limit_angles=True,
     )
 
     gaze_projector = gaze.ceiling_projection.Estimator(
@@ -200,7 +218,9 @@ async def main() -> None:
     )
 
     visualizer = Visualizer(
-        executor, properties=ceiling_reader.properties, confidence_threshold=0.5
+        executor,
+        properties=ceiling_reader.properties,
+        confidence_threshold=0.5,
     )
 
     writer = Writer(
