@@ -38,11 +38,7 @@ class Estimator:
     from_model: Compose
 
     def __init__(
-        self,
-        executor: ThreadPoolExecutor,
-        device: torch.device,
-        *,
-        input: Properties,
+        self, executor: ThreadPoolExecutor, device: torch.device, *, input: Properties
     ) -> None:
         self.executor = executor
         self.device = device
