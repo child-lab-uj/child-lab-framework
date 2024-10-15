@@ -25,7 +25,7 @@ class Visualizer:
     BONE_THICKNESS = 2
 
     GAZE_COLOR = (255, 255, 0)
-    CORRECTED_GAZE_COLOR = (255, 0, 0)
+    CORRECTED_GAZE_COLOR = (0, 255, 255)
     GAZE_THICKNESS = 5
 
     JOINT_RADIUS = 5
@@ -76,16 +76,12 @@ class Visualizer:
         starts = result.centres
         ends = starts + 100.0 * result.directions
 
-        print('Gaze to draw:')
-        print(f'{starts = }')
-        print(f'{ends = }')
-
         start: FloatArray1
         end: FloatArray1
 
-        color = self.CORRECTED_GAZE_COLOR if result.was_corrected else self.GAZE_COLOR
+        for start, end, was_corrected in zip(starts, ends, result.was_corrected):
+            color = self.CORRECTED_GAZE_COLOR if was_corrected else self.GAZE_COLOR
 
-        for start, end in zip(starts, ends):
             cv2.line(
                 frame,
                 typing.cast(cv2.typing.Point, start.astype(np.int32)),

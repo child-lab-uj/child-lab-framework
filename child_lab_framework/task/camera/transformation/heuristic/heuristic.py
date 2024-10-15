@@ -30,9 +30,9 @@ class Estimator:
 
     def __init__(
         self,
+        executor: ThreadPoolExecutor,
         from_view: Properties,
         to_view: Properties,
-        executor: ThreadPoolExecutor,
         *,
         keypoint_threshold: float = 0.25,
     ) -> None:

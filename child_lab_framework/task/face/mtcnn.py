@@ -6,7 +6,7 @@ from typing import Literal
 
 import cv2
 import numpy as np
-from mtcnn.mtcnn import MTCNN
+from mtcnn.mtcnn import MTCNN as Mtcnn
 
 from ...core.video import Frame
 from ...typing.array import (
@@ -42,7 +42,7 @@ class Result:
 
 
 class Detector:
-    model: MTCNN
+    model: Mtcnn
     threshold: float
     allow_upscaling: bool
 
@@ -52,7 +52,7 @@ class Detector:
         threshold: float,
         allow_upscaling: bool = True,
     ) -> None:
-        self.model = MTCNN()
+        self.model = Mtcnn()
 
     def predict(self, image: Frame) -> Result | None:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # type: ignore

@@ -7,12 +7,13 @@ from .task import depth, face, gaze, pose
 from .task.camera.transformation import heuristic
 from .task.visualization import Visualizer
 
-BATCH_SIZE = 5
+BATCH_SIZE = 1
 
 
 async def main() -> None:
-    executor = ThreadPoolExecutor(max_workers=8)
+    executor = ThreadPoolExecutor(max_workers=1)
     device = hardware.get_best_device()
+    # device = torch.device('cpu')
 
     ceiling_reader = Reader(
         'dev/data/aruco_cubic_ultra_short/ceiling.mp4',
@@ -28,7 +29,7 @@ async def main() -> None:
     )
 
     window_right_reader = Reader(
-        'dev/data/short/window_right.mp4',
+        'dev/data/aruco_cubic_ultra_short/window_right.mp4',
         perspective=Perspective.WINDOW_RIGHT,
         batch_size=BATCH_SIZE,
         like=ceiling_reader.properties,
@@ -55,13 +56,16 @@ async def main() -> None:
     )
 
     window_left_to_ceiling_transformation_estimator = heuristic.Estimator(
-        window_left_reader.properties, ceiling_reader.properties, executor
+        executor,
+        window_left_reader.properties,
+        ceiling_reader.properties,
+        keypoint_threshold=0.5,
     )
 
     window_right_to_ceiling_transformation_estimator = heuristic.Estimator(
+        executor,
         window_right_reader.properties,
         ceiling_reader.properties,
-        executor,
         keypoint_threshold=0.5,
     )
 
@@ -151,6 +155,8 @@ async def main() -> None:
                 gaze_projector,
                 (
                     'ceiling_pose',
+                    'window_left_pose',
+                    'window_right_pose',
                     'window_left_gaze',
                     'window_right_gaze',
                     'window_left_to_ceiling',

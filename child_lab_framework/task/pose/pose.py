@@ -137,9 +137,13 @@ class Estimator:
 
         return int(torch.argmin(area_broadcast(boxes_data)).item())
 
-    # TODO: use detector.predict and self.__interpret here
     def predict(self, frame: Frame) -> Result | None:
-        raise NotImplementedError()
+        result = self.detector.predict(frame, verbose=False, device=self.device)
+
+        if result is None or len(result) == 0:
+            return None
+
+        return self.__interpret(result[0])
 
     # TODO: JIT
     def __interpret(self, detections: yolo.Results) -> Result | None:

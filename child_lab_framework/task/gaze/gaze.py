@@ -8,8 +8,11 @@ import mini_face as mf
 import numpy as np
 from icecream import ic
 
+from child_lab_framework.core.stream import InvalidArgumentException
+
 from ...core.sequence import imputed_with_zeros_reference_inplace
 from ...core.video import Frame, Properties
+from ...logging.logger import Logger
 from ...typing.array import FloatArray3, IntArray1
 from ...typing.stream import Fiber
 from ...util import MODELS_DIR as MODELS_ROOT
@@ -64,7 +67,6 @@ type Input = tuple[list[Frame], list[face.Result | None] | None]
 
 class Estimator:
     MODELS_DIR = str(MODELS_ROOT / 'model')
-    print(MODELS_DIR)
 
     properties: Properties
 
@@ -124,12 +126,15 @@ class Estimator:
             imputed_with_zeros_reference_inplace(directions),
         ):
             case list(eyes_imputed), list(directions_imputed):
+                Logger.info('Gaze estimated')
+
                 return Result(
                     np.concatenate(eyes_imputed, axis=0),
                     np.concatenate(directions_imputed, axis=0),
                 )
 
             case _:
+                Logger.info('No gaze estimated')
                 return None
 
     def __predict_safe(self, frame: Frame, faces: face.Result | None) -> Result | None:
@@ -152,5 +157,8 @@ class Estimator:
                         lambda: list(starmap(self.__predict_safe, zip(frames, faces))),
                     )
 
-                case _:
+                case None:
                     results = None
+
+                case _:
+                    raise InvalidArgumentException()

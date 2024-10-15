@@ -5,22 +5,14 @@ from itertools import repeat, starmap
 
 import numpy as np
 
+from ...core.stream import InvalidArgumentException
 from ...core.video import Properties
-from ...typing.array import FloatArray2
+from ...logging import Logger
+from ...typing.array import BoolArray1, FloatArray2
 from ...typing.stream import Fiber
-from ...typing.transformation import Transformation
 from .. import face, pose
-from ..camera.transformation import heuristic
+from ..camera.transformation import Result as Transformation
 from . import ceiling_baseline, gaze
-
-# Multi-camera gaze direction estimation without strict algebraic camera models:
-# 1. estimate actor's skeleton on each frame in both cameras
-#    (heuristic: adults' keypoints have higher variance, children have smaller bounding boxes)
-# 2. compute a ceiling baseline vector (perpendicular to shoulder line in a ceiling camera)
-# 3. detect actor's face on the other camera
-# 4. compute the offset-baseline vector (normal to face, Wim's MediaPipe solution')
-# 5. Rotate it to the ceiling camera's space and combine with the ceiling baseline
-
 
 type Input = tuple[
     list[pose.Result | None] | None,
@@ -28,8 +20,8 @@ type Input = tuple[
     list[pose.Result | None] | None,
     list[face.Result | None] | None,
     list[face.Result | None] | None,
-    list[heuristic.Result | None] | None,
-    list[heuristic.Result | None] | None,
+    list[Transformation | None] | None,
+    list[Transformation | None] | None,
 ]
 
 
@@ -37,12 +29,13 @@ type Input = tuple[
 class Result:
     centres: FloatArray2
     directions: FloatArray2
-    was_corrected: bool
+    was_corrected: BoolArray1
 
 
 class Estimator:
     BASELINE_WEIGHT: float = 0.0
     COLLECTIVE_CORRECTION_WEIGHT: float = 1.0 - BASELINE_WEIGHT
+    TEMPORARY_RESCALE: float = 1000.0  # for numerical stability during projection
 
     ceiling_properties: Properties
     window_left_properties: Properties
@@ -70,7 +63,10 @@ class Estimator:
         window_left_to_ceiling: Transformation | None,
         window_right_to_ceiling: Transformation | None,
     ) -> Result:
-        centres, directions = ceiling_baseline.estimate(ceiling_pose)
+        centres, directions = ceiling_baseline.estimate(
+            ceiling_pose,
+            face_keypoint_threshold=0.4,
+        )
 
         correct_from_left = (
             window_left_gaze is not None and window_left_to_ceiling is not None
@@ -83,59 +79,58 @@ class Estimator:
         correction_count = int(correct_from_left) + int(correct_from_right)
 
         if correction_count == 0:
-            return Result(centres, directions, False)
+            Logger.info('Skipped correction')
+            return Result(
+                centres,
+                directions,
+                np.array([False for _ in range(len(centres))]),
+            )
 
         correction_weight = self.COLLECTIVE_CORRECTION_WEIGHT / float(correction_count)
         baseline_weight = self.BASELINE_WEIGHT
+        temporary_rescale = self.TEMPORARY_RESCALE
 
-        centres *= baseline_weight
-        directions *= baseline_weight
+        # slicing gaze direction arrays is a heuristic workaround for a lack of exact actor matching between cameras
+        # assuming there are only two actors in the world.
+        # gaze detected in the left camera => it belongs the actor on the right
 
-        # Use np.einsum('ij,kmj->kmi') for transformation without simplification (i.e. on n_people x 2 x 3 arrays)
-        # cannot reuse `correct_from_left` because the type checker gets confused
+        # cannot reuse `correct_from_left` value because the type checker gets confused about not-None values
         if window_left_gaze is not None and window_left_to_ceiling is not None:
-            rotation_transposed = window_left_to_ceiling.rotation.T
-            translation = window_left_to_ceiling.translation.T
-
-            eyes_simplified = np.squeeze(np.mean(window_left_gaze.eyes, axis=1))
-
-            left_centre_correction: FloatArray2 = (
-                eyes_simplified @ rotation_transposed + translation
-            ).view()[:, :2]
-
-            directions_simplified = np.squeeze(
-                np.mean(window_left_gaze.directions, axis=1)
+            directions_simplified = (
+                np.squeeze(np.mean(window_left_gaze.directions, axis=1))
+                * temporary_rescale
             )
 
-            left_direction_correction: FloatArray2 = (
-                directions_simplified @ rotation_transposed + translation
-            ).view()[:, :2]
+            directions_projected = (
+                window_left_to_ceiling.project(directions_simplified)
+                / temporary_rescale
+                * correction_weight
+            )
 
-            centres += correction_weight * left_centre_correction
-            directions += correction_weight * left_direction_correction
+            directions[1, ...] *= baseline_weight
+            directions[1, ...] += directions_projected[1, ...]
 
         if window_right_gaze is not None and window_right_to_ceiling is not None:
-            rotation_transposed = window_right_to_ceiling.rotation.T
-            translation = window_right_to_ceiling.translation.T
-
-            eyes_simplified = np.squeeze(np.mean(window_right_gaze.eyes, axis=1))
-
-            right_centre_correction: FloatArray2 = (
-                eyes_simplified @ rotation_transposed + translation
-            ).view()[:, :2]
-
             directions_simplified = np.squeeze(
-                np.mean(window_right_gaze.directions, axis=1)
+                np.mean(window_right_gaze.directions, axis=1) * temporary_rescale
             )
 
-            right_direction_correction: FloatArray2 = (
-                directions_simplified @ rotation_transposed + translation
-            ).view()[:, :2]
+            directions_projected = (
+                window_right_to_ceiling.project(directions_simplified)
+                / temporary_rescale
+                * correction_weight
+            )
 
-            centres += correction_weight * right_centre_correction
-            directions += correction_weight * right_direction_correction
+            directions[0, ...] *= baseline_weight
+            directions[0, ...] += directions_projected[0, ...]
 
-        return Result(centres, directions, True)
+        return Result(
+            centres,
+            directions,
+            np.array(
+                [correct_from_right, correct_from_left]
+            ),  # assumption about two actors...
+        )
 
     def __predict_safe(
         self,
@@ -188,5 +183,8 @@ class Estimator:
                         ),
                     )
 
-                case _:
+                case None:
                     results = None
+
+                case _:
+                    raise InvalidArgumentException()
