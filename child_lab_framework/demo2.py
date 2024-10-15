@@ -66,28 +66,28 @@ async def __step(components: dict[str, Component]) -> Fiber[None, bool]:
         )
 
         ceiling_depth_value = await depth_fiber.asend(ceiling_reader_value)
-        # window_left_depth_value = await depth_fiber.asend(window_left_reader_value)
+        window_left_depth_value = await depth_fiber.asend(window_left_reader_value)
         window_right_depth_value = await depth_fiber.asend(window_right_reader_value)
 
         (
-            # window_left_to_ceiling_value,
             window_left_face_value,
             window_right_face_value,
+            window_left_to_ceiling_value,
             window_right_to_ceiling_value,
         ) = await asyncio.gather(
-            # window_left_to_ceiling_fiber.asend(
-            #     (
-            #         window_left_pose_value,
-            #         ceiling_pose_value,
-            #         window_left_depth_value,
-            #         ceiling_depth_value,
-            #     )
-            # ),
             window_left_face_fiber.asend(
                 (window_left_reader_value, window_left_pose_value)
             ),
             window_right_face_fiber.asend(
                 (window_right_reader_value, window_right_pose_value)
+            ),
+            window_left_to_ceiling_fiber.asend(
+                (
+                    window_left_pose_value,
+                    ceiling_pose_value,
+                    window_left_depth_value,
+                    ceiling_depth_value,
+                )
             ),
             window_right_to_ceiling_fiber.asend(
                 (
@@ -113,7 +113,7 @@ async def __step(components: dict[str, Component]) -> Fiber[None, bool]:
                 ceiling_pose_value,
                 window_left_gaze_value,
                 window_right_gaze_value,
-                None,
+                window_left_to_ceiling_value,
                 window_right_to_ceiling_value,
             )
         )
@@ -271,8 +271,6 @@ async def main() -> None:
                     'window_right_to_ceiling',
                 ),
             ),
-            # ('social_distance', social_distance_estimator, 'ceiling_pose'),
-            # ('social_distance_logger', social_distance_logger, 'social_distance'),
             (
                 'visualizer',
                 visualizer,
