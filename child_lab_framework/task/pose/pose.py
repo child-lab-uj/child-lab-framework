@@ -14,6 +14,7 @@ from ...core.geometry import area_broadcast
 from ...core.hardware import get_best_device
 from ...core.stream import autostart
 from ...core.video import Frame
+from ...logging.logger import Logger
 from ...typing.array import BoolArray2, FloatArray1, FloatArray2, FloatArray3, IntArray2
 from ...typing.stream import Fiber
 from ...util import MODELS_DIR
@@ -142,7 +143,8 @@ class Estimator:
 
     # TODO: JIT
     def __interpret(self, detections: yolo.Results) -> Result | None:
-        # print('[INFO] pose detection')
+        Logger.info('Poses detected')
+
         boxes = detections.boxes
         keypoints = detections.keypoints
 
