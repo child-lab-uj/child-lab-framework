@@ -8,6 +8,7 @@ from depth_pro import depth_pro as dp
 from torchvision.transforms import Compose, ConvertImageDtype, Normalize, Resize
 
 from ...core.video import Frame, Properties
+from ...logging import Logger
 from ...typing.array import FloatArray2
 from ...typing.stream import Fiber
 from ...util import MODELS_DIR
@@ -68,6 +69,8 @@ class Estimator:
         result: DepthProResult = self.model.infer(input)  # type: ignore  # That's why returning a `Mapping` isn't a good idea :v
 
         depth = self.from_model(result['depth'])
+
+        Logger.info('Depth estimated')
 
         # TODO: return the tensor itself without transferring (Issue #6)
         return depth.cpu().numpy()
