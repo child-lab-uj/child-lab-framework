@@ -30,7 +30,7 @@ def estimate(
     intrinsics_matrix: FloatArray2,
     distortion: FloatArray1,
     confidence_threshold: float,
-) -> tuple[FloatArray2, FloatArray1] | None:
+) -> tuple[FloatArray1, FloatArray1] | None:
     # NOTE: Workaround; fix when inter-camera actor recognition is introduced
     if len(from_pose.actors) != len(to_pose.actors):
         return None
@@ -66,6 +66,4 @@ def estimate(
     if not success:
         return None
 
-    rotation, _jacobian = cv2.Rodrigues(rotation)
-
-    return (typing.cast(FloatArray2, rotation), typing.cast(FloatArray1, translation))
+    return (typing.cast(FloatArray1, rotation), typing.cast(FloatArray1, translation))

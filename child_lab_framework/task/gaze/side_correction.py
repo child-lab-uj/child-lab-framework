@@ -3,7 +3,7 @@ import numpy as np
 from ...core.sequence import imputed_with_zeros_reference_inplace
 from ...typing.array import FloatArray2, FloatArray3
 from .. import face, pose
-from ..camera.transformation import heuristic
+from ..camera.transformation import Result as Transformation
 from ..face import Eye
 
 
@@ -20,7 +20,7 @@ def estimate(
     ceiling_poses: list[pose.Result | None],
     side_poses: list[pose.Result | None],
     side_faces: list[face.Result | None],
-    side_to_ceiling_transformations: list[heuristic.Result | None],
+    side_to_ceiling_transformations: list[Transformation | None],
 ) -> FloatArray3 | None:
     results: list[FloatArray2 | None] = []
 
@@ -37,9 +37,7 @@ def estimate(
             continue
 
         right_eyes_normals = eye_normals(faces.eyes(Eye.Right)[:, :, :3])
-        ceiling_gazes = (
-            right_eyes_normals @ transformation.rotation + transformation.translation.T
-        ).view()[:, [0, 1]]
+        ceiling_gazes = transformation.project(right_eyes_normals).view()[:, [0, 1]]
 
         results.append(ceiling_gazes)
 

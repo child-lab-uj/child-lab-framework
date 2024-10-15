@@ -9,7 +9,7 @@ from ...core.video import Properties
 from ...typing.array import FloatArray1, FloatArray2, FloatArray3
 from ...typing.stream import Fiber
 from .. import face, pose
-from ..camera.transformation import heuristic
+from ..camera.transformation import Result as Transformation
 from . import ceiling_baseline, side_correction
 
 # Multi-camera gaze direction estimation without strict algebraic camera models:
@@ -27,8 +27,8 @@ type Input = tuple[
     list[pose.Result | None] | None,
     list[face.Result | None] | None,
     list[face.Result | None] | None,
-    list[heuristic.Result | None] | None,
-    list[heuristic.Result | None] | None,
+    list[Transformation | None] | None,
+    list[Transformation | None] | None,
 ]
 
 
@@ -82,8 +82,8 @@ class Estimator:
         window_right_pose: list[pose.Result | None] | None,
         window_left_face: list[face.Result | None] | None,
         window_right_face: list[face.Result | None] | None,
-        window_left_to_ceiling: list[heuristic.Result | None] | None,
-        window_right_to_ceiling: list[heuristic.Result | None] | None,
+        window_left_to_ceiling: list[Transformation | None] | None,
+        window_right_to_ceiling: list[Transformation | None] | None,
     ) -> list[Result | None] | None:
         baseline = ceiling_baseline.estimate(ceiling_pose, None)
 
