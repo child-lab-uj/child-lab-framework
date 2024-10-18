@@ -1,16 +1,18 @@
 from concurrent.futures import ThreadPoolExecutor
 
-from .core.video import Reader, Writer, Perspective, Format
+from .core import hardware
 from .core.flow import Machinery
-from .task import pose, face, gaze, depth, social_distance
-from .task.visualization import Visualizer
+from .core.video import Format, Perspective, Reader, Writer
+from .task import depth, face, gaze, pose, social_distance
 from .task.camera.transformation import heuristic
+from .task.visualization import Visualizer
 
 BATCH_SIZE = 5
 
 
 async def main() -> None:
     executor = ThreadPoolExecutor(max_workers=8)
+    device = hardware.get_best_device()
 
     ceiling_reader = Reader(
         'dev/data/ultra_short/ceiling.mp4',
@@ -22,17 +24,27 @@ async def main() -> None:
         'dev/data/short/window_left.mp4',
         perspective=Perspective.WINDOW_LEFT,
         batch_size=BATCH_SIZE,
+        like=ceiling_reader.properties,
     )
 
     window_right_reader = Reader(
         'dev/data/short/window_right.mp4',
         perspective=Perspective.WINDOW_RIGHT,
         batch_size=BATCH_SIZE,
+        like=ceiling_reader.properties,
     )
 
-    ceiling_depth_estimator = depth.Estimator(executor, inter_threads=3)
-    window_left_depth_estimator = depth.Estimator(executor, inter_threads=3)
-    window_right_depth_estimator = depth.Estimator(executor, inter_threads=3)
+    ceiling_depth_estimator = depth.Estimator(
+        executor, device, input=ceiling_reader.properties
+    )
+
+    window_left_depth_estimator = depth.Estimator(
+        executor, device, input=window_left_reader.properties
+    )
+
+    window_right_depth_estimator = depth.Estimator(
+        executor, device, input=window_right_reader.properties
+    )
 
     ceiling_pose_estimator = pose.Estimator(executor, max_detections=2, threshold=0.5)
 
@@ -43,11 +55,13 @@ async def main() -> None:
     )
 
     window_left_to_ceiling_transformation_estimator = heuristic.Estimator(
-        window_left_reader.properties, ceiling_reader.properties, executor
+        executor,
+        window_left_reader.properties,
+        ceiling_reader.properties,
     )
 
     window_right_to_ceiling_transformation_estimator = heuristic.Estimator(
-        window_right_reader.properties, ceiling_reader.properties, executor
+        executor, window_right_reader.properties, ceiling_reader.properties
     )
 
     window_left_face_estimator = face.Estimator(

@@ -1,9 +1,9 @@
-import sys
 import time
 from collections.abc import Callable, Iterable
 
 import networkx as nx
 
+from ...logging.logger import Logger
 from ...typing.flow import Component
 from ...typing.stream import Fiber
 from .compilation import compiled_flow
@@ -62,7 +62,8 @@ class Machinery:
 
             step += 1
             elapsed = time.time() - start
-            sys.stdout.write(f'\rstep {step} (elapsed time: {elapsed:.2f} s)')
+
+            Logger.info(f'Step {step}, elapsed time: {elapsed:.2f} s')
 
             if status:
                 break

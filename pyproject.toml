@@ -17,12 +17,12 @@ opencv-python = "^4.10.0.84"
 ultralytics = "^8.2.72"
 mediapipe = "^0.10.14"
 colorama = "^0.4.6"
-onnxruntime = "^1.18.1"
 numba = "^0.60.0"
 networkx = "^3.3"
 scipy = "^1.14.1"
 pandas = "^2.2.2"
 ml-dtypes = "0.4.0"          # installing higher version fails because it requires NumPy >= 2.1 (see issue #7)
+depth-pro = {git = "git@github.com:apple/ml-depth-pro.git"}
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"
@@ -39,7 +39,6 @@ exclude = [
     ".venv",
     "child_lab_framework/docker",      #
     "child_lab_framework/interface",   # too chaotic to lint ;v
-    "child_lab_framework/logging",     #
     "child_lab_framework/experiments",
 ]
 line-length = 90
