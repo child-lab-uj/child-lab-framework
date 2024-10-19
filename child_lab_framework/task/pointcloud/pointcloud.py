@@ -1,14 +1,15 @@
 import numpy as np
+from ...typing.array import IntArray2, FloatArray2, FloatArray3, FloatArray4, PointCloud
 
 
 def to_3D(
     fx: float,
     fy: float,
-    depth: np.ndarray,
+    depth: FloatArray2,
     cx: float,
     cy: float,
-    u: np.ndarray,
-    v: np.ndarray,
+    u: IntArray2,
+    v: IntArray2,
 ) -> np.ndarray:
     """
     Converts 2D image coordinates to 3D world coordinates.
@@ -16,14 +17,14 @@ def to_3D(
     Args:
         fx (float): Focal length along the x-axis.
         fy (float): Focal length along the y-axis.
-        depth (np.ndarray): Depth map.
+        depth (FloatArray2): Depth map.
         cx (float): Principal point offset in x direction.
         cy (float): Principal point offset in y direction.
-        u (np.ndarray): Grid of pixel coordinates along the width (x-coordinates).
-        v (np.ndarray): Grid of pixel coordinates along the height (y-coordinates).
+        u (IntArray2): Grid of pixel coordinates along the width (x-coordinates).
+        v (IntArray2): Grid of pixel coordinates along the height (y-coordinates).
 
     Returns:
-        np.ndarray: 3D coordinates (x, y, z) as a concatenated array.
+        FloatArray3: 3D coordinates (x, y, z) as a concatenated array.
     """
     x = (u - cx) * depth / fx
     y = (v - cy) * depth / fy
@@ -38,13 +39,13 @@ def to_3D(
 
 
 def make_point_cloud(
-    rgbd: np.ndarray, fx: float, fy: float, cx: float, cy: float
-) -> np.ndarray:
+    rgbd: FloatArray4, fx: float, fy: float, cx: float, cy: float
+) -> PointCloud:
     """
     Generates a point cloud from an RGB-D image.
 
     Args:
-        rgbd (np.ndarray): The input RGB-D image, where the last channel is the depth.
+        rgbd (FloatArray4): The input RGB-D image, where the last channel is the depth.
         fx (float): Focal length along the x-axis.
         fy (float): Focal length along the y-axis.
         cx (float): Principal point offset in x direction.

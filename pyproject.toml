@@ -37,8 +37,6 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 exclude = [
     ".venv",
-    "child_lab_framework/docker",      #
-    "child_lab_framework/interface",   # too chaotic to lint ;v
     "child_lab_framework/experiments",
 ]
 line-length = 90
