@@ -17,7 +17,6 @@ async def main() -> None:
 
     executor = ThreadPoolExecutor(max_workers=8)
     gpu = torch.device('mps')
-    cpu = torch.device('cpu')
 
     ceiling_reader = Reader(
         'dev/data/aruco_cubic_ultra_short/ceiling.mp4',
