@@ -1,13 +1,14 @@
-import asyncio
 import sys
 
 from colorama import Fore
 
-from .demo import main
+# from .demo import main
+from .demo_sequential import main
 
 if __name__ == '__main__':
     try:
-        asyncio.run(main())
+        main()
+        # asyncio.run(main())
 
     except KeyboardInterrupt:
-        print('\n' + Fore.RED + 'Interrupted by user', file=sys.stderr)
+        print('\n' + Fore.RED + 'Interrupted by user' + Fore.RESET, file=sys.stderr)

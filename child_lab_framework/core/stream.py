@@ -1,6 +1,9 @@
 from functools import wraps
 
 
+class InvalidArgumentException(Exception): ...
+
+
 def autostart(method):
     @wraps(method)
     def inner(self):

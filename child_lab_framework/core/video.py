@@ -1,17 +1,17 @@
 import asyncio
 import math
 import typing
+from copy import copy
 from dataclasses import dataclass
-from enum import Enum, IntEnum, auto
+from enum import Enum
 from functools import lru_cache
 
 import cv2
 import numpy as np
 
-from ..typing.array import FloatArray1, FloatArray2, IntArray2
+from ..typing.array import FloatArray1, FloatArray2
 from ..typing.stream import Fiber
 from ..typing.video import Frame
-from .stream import autostart
 
 
 class Format(Enum):
@@ -19,12 +19,12 @@ class Format(Enum):
     MP4 = 'mp4v'
 
 
-class Perspective(IntEnum):
-    CEILING = auto()
-    WINDOW_RIGHT = auto()
-    WINDOW_LEFT = auto()
-    WALL_RIGHT = auto()
-    WALL_LEFT = auto()
+class Perspective(Enum):
+    CEILING = 'Ceiling'
+    WINDOW_RIGHT = 'Window Right'
+    WINDOW_LEFT = 'Window Left'
+    WALL_RIGHT = 'Wall Right'
+    WALL_LEFT = 'Wall Left'
 
 
 @dataclass(unsafe_hash=True, frozen=True)
@@ -97,6 +97,11 @@ class Reader:
     __mimicked_properties: Properties
     properties: Properties
 
+    __frame_repetitions: int
+
+    __read_repetitions_left: int
+    __read_last_frame: Frame
+
     def __init__(
         self,
         source: str,
@@ -117,10 +122,83 @@ class Reader:
 
         input_properties = Properties(width, height, fps, perspective)
         self.__input_properties = input_properties
-        self.__mimicked_properties = self.properties = like or input_properties
+        self.__mimicked_properties = self.properties = copy(like) or input_properties
+        self.properties.perspective = perspective
+
+        self.__frame_repetitions = int(
+            math.ceil(self.__mimicked_properties.fps / input_properties.fps)
+        )
+
+        self.__read_repetitions_left = 0
+        self.__read_last_frame = None  # type: ignore  # A kind of `lateinit` field
 
     def __del__(self) -> None:
         self.decoder.release()
+
+    # TODO: wrap frames in dataclasses and add flag signalizing whether the frame was imputed.
+    # Ignore imputed frames in `Reader` and squash their annotations to their "parent" frames.
+    def read(self) -> Frame | None:
+        decoder = self.decoder
+
+        if not decoder.isOpened():
+            return None
+
+        if self.__read_repetitions_left > 0:
+            self.__read_repetitions_left -= 1
+            return self.__read_last_frame
+
+        frame: Frame
+        success, frame = decoder.read()  # type: ignore
+
+        if not success:
+            return None
+
+        fx, fy = self.__input_properties.calibration.focal_length
+
+        mimicked_properties = self.__mimicked_properties
+        destination_size = mimicked_properties.width, mimicked_properties.height
+
+        frame = cv2.resize(frame, destination_size, fx=fx, fy=fy)  # type: ignore
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # type: ignore
+        frame.flags.writeable = False
+
+        self.__read_repetitions_left = self.__frame_repetitions - 1
+        self.__read_last_frame = frame
+
+        return frame
+
+    def read_batch(self) -> list[Frame] | None:
+        decoder = self.decoder
+        repetitions = self.__frame_repetitions
+
+        if not decoder.isOpened():
+            return None
+
+        fx, fy = self.__input_properties.calibration.focal_length
+
+        mimicked_properties = self.__mimicked_properties
+        destination_size = mimicked_properties.width, mimicked_properties.height
+
+        frame: Frame
+        batch: list[Frame] = []
+
+        for _ in range(self.batch_size):
+            success, frame = decoder.read()  # type: ignore
+
+            if not decoder.isOpened():
+                break
+
+            if not success:
+                return None
+
+            frame = cv2.resize(frame, destination_size, fx=fx, fy=fy)  # type: ignore
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # type: ignore
+            frame.flags.writeable = False
+
+            for _ in range(repetitions):
+                batch.append(typing.cast(Frame, frame.copy()))
+
+        return batch
 
     async def stream(self) -> Fiber[None, list[Frame] | None]:
         decoder = self.decoder
@@ -134,6 +212,8 @@ class Reader:
 
         fx, fy = input_properties.calibration.focal_length
 
+        yield None  # workaround for codegen adding `await asend(None)` upon opening each stream
+
         while decoder.isOpened():
             batch: list[Frame] | None = []
 
@@ -145,11 +225,12 @@ class Reader:
                 if not success:
                     break
 
-                resized_frame = cv2.resize(frame, destination_size, fx=fx, fy=fy)
-                resized_frame.flags.writeable = False
+                frame = cv2.resize(frame, destination_size, fx=fx, fy=fy)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame.flags.writeable = False
 
                 for _ in range(frame_repeats):
-                    batch.append(typing.cast(Frame, resized_frame.copy()))
+                    batch.append(typing.cast(Frame, frame.copy()))
 
             if not success or len(batch) == 0:
                 break
@@ -185,22 +266,22 @@ class Writer:
     def __del__(self) -> None:
         self.encoder.release()
 
-    @autostart
+    def write(self, frame: Frame) -> None:
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # type: ignore
+        self.encoder.write(frame)
+
+    def write_batch(self, frames: list[Frame]) -> None:
+        for frame in frames:
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # type: ignore
+            self.encoder.write(frame)
+
     async def stream(self) -> Fiber[list[Frame] | None, None]:
         while True:
             match (yield):
                 case list(frames):
-                    for frame in frames:
-                        self.encoder.write(frame)
+                    self.write_batch(frames)
 
                 case None:
                     continue
 
             await asyncio.sleep(0.0)
-
-
-def cropped(frame: Frame, boxes: FloatArray2) -> list[Frame]:
-    boxes_truncated: IntArray2 = boxes.astype(np.int32)
-    crops = [frame[box[0] : box[2], box[1] : box[3]] for box in list(boxes_truncated)]
-
-    return crops

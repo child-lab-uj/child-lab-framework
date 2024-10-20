@@ -1,50 +1,42 @@
-from itertools import repeat
-
 import numpy as np
 
-from ...core.algebra import orthogonal
-from ...core.sequence import imputed_with_reference_inplace
-from ...task import face, pose
-from ...typing.array import FloatArray2, FloatArray3
+from ...core.algebra import normalized, orthogonal
+from ...task import pose
+from ...typing.array import FloatArray2
 from ..pose.keypoint import YoloKeypoint
 
 
 def estimate(
-    poses: list[pose.Result | None], faces: list[face.Result | None] | None
-) -> tuple[FloatArray3, FloatArray3] | None:
-    result_centres: list[FloatArray2 | None] = []
-    result_vectors: list[FloatArray2 | None] = []
+    poses: pose.Result,
+    *,
+    face_keypoint_threshold: float = 0.75,
+) -> tuple[FloatArray2, FloatArray2]:
+    left_shoulders: FloatArray2 = poses.keypoints[:, YoloKeypoint.LEFT_SHOULDER.value, :2]
+    right_shoulders: FloatArray2 = poses.keypoints[
+        :, YoloKeypoint.RIGHT_SHOULDER.value, :2
+    ]
 
-    for frame_poses, _ in zip(poses, faces or repeat(None)):  # TODO: use face detection
-        if frame_poses is None or len(frame_poses.actors) < 2:  # NOTE: workaround
-            result_centres.append(None)
-            result_vectors.append(None)
-            continue
+    # convention: shoulder vector goes from left to right -> versor (calculated as [y, -x]) points to the actor's front
+    directions = normalized(orthogonal(right_shoulders - left_shoulders))
 
-        left_shoulder: FloatArray2 = frame_poses.keypoints[
-            :, YoloKeypoint.LEFT_SHOULDER.value, :
-        ]
-        right_shoulder: FloatArray2 = frame_poses.keypoints[
-            :, YoloKeypoint.RIGHT_SHOULDER.value, :
-        ]
+    starts = np.zeros_like(directions)
 
-        centres: FloatArray2 = (left_shoulder + right_shoulder) / 2.0
-        centres[:, -1] = (
-            left_shoulder[:, -1] * right_shoulder[:, -1]
-        )  # confidence of two keypoints as joint probability
+    batched_face_keypoints = poses.keypoints[:, :5, :]
 
-        # convention: shoulder vector goes from left to right -> versor (calculated as [y, -x]) points to the actor's front
-        vectors = orthogonal(right_shoulder - left_shoulder)
+    face: FloatArray2
+    for i, face in enumerate(batched_face_keypoints):
+        confidences = face.view()[:, 2]
 
-        result_centres.append(centres)
-        result_vectors.append(vectors)
+        if confidences[0] >= face_keypoint_threshold:
+            starts[i, :] = face[0, :2]
 
-    match (
-        imputed_with_reference_inplace(result_centres),
-        imputed_with_reference_inplace(result_vectors),
-    ):
-        case list(imputed_centres), list(imputed_vectors):
-            return np.stack(imputed_centres), np.stack(imputed_vectors)
+        elif min(confidences[1], confidences[2]) >= face_keypoint_threshold:
+            starts[i, :] = (face[1, :2] + face[2, :2]) / 2.0
 
-        case _:
-            return None
+        elif min(confidences[3], confidences[4]) >= face_keypoint_threshold:
+            starts[i, :] = (face[3, :2] + face[4, :2]) / 2.0
+
+        else:
+            starts[i, :] = (left_shoulders[i, :] + right_shoulders[i, :]) / 2.0
+
+    return starts, directions

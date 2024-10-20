@@ -21,8 +21,11 @@ numba = "^0.60.0"
 networkx = "^3.3"
 scipy = "^1.14.1"
 pandas = "^2.2.2"
-ml-dtypes = "0.4.0"          # installing higher version fails because it requires NumPy >= 2.1 (see issue #7)
-depth-pro = {git = "git@github.com:apple/ml-depth-pro.git"}
+mtcnn = "^0.1.1"
+ml-dtypes = "0.4.0"                                           # installing higher version fails because it requires NumPy >= 2.1 (see issue #7)
+tensorflow = "^2.17.0"
+mini-face = ">=0.1.0"
+depth-pro = { git = "git@github.com:apple/ml-depth-pro.git" }
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"
@@ -37,8 +40,9 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 exclude = [
     ".venv",
-    "child_lab_framework/docker",      #
-    "child_lab_framework/interface",   # too chaotic to lint ;v
+    "widget",                          #
+    "child_lab_framework/docker",      # too chaotic to lint ;v
+    "child_lab_framework/interface",   #
     "child_lab_framework/experiments",
 ]
 line-length = 90
