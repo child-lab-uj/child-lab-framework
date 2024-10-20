@@ -56,14 +56,18 @@ class Machinery:
 
         step = 0
         start = time.time()
+        end: float
 
         while True:
             status = await controller.asend(None)
 
-            step += 1
-            elapsed = time.time() - start
+            end = time.time()
+            elapsed = end - start
 
             Logger.info(f'Step {step}, elapsed time: {elapsed:.2f} s')
 
             if status:
                 break
+
+            step += 1
+            start = end

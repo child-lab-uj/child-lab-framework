@@ -6,7 +6,6 @@ from .pose import (
     Estimator,
     Keypoints,
     Result,
-    common_points_indicator,
 )
 
 __all__ = [
@@ -17,5 +16,4 @@ __all__ = [
     'Estimator',
     'Keypoints',
     'Result',
-    'common_points_indicator',
 ]

@@ -6,6 +6,8 @@ from itertools import starmap
 import numpy as np
 
 from ...core.sequence import imputed_with_reference_inplace
+from ...core.stream import InvalidArgumentException
+from ...core.video import Properties
 from ...typing.array import FloatArray1, FloatArray2
 from ...typing.stream import Fiber
 from ...typing.video import Frame
@@ -26,11 +28,16 @@ class Estimator:
     threshold: float
     detector: mtcnn.Detector
 
+    input: Properties
+
     executor: ThreadPoolExecutor
 
-    def __init__(self, executor: ThreadPoolExecutor, *, threshold: float) -> None:
+    def __init__(
+        self, executor: ThreadPoolExecutor, *, input: Properties, threshold: float
+    ) -> None:
         self.executor = executor
         self.threshold = threshold
+        self.input = input
         self.detector = mtcnn.Detector(threshold=threshold)
 
     def predict(self, frame: Frame, poses: pose.Result) -> Result | None:
@@ -110,6 +117,15 @@ class Estimator:
             case _:
                 return None
 
+    def predict_batch(
+        self,
+        frames: list[Frame],
+        poses: list[pose.Result],
+    ) -> list[Result] | None:
+        return imputed_with_reference_inplace(
+            list(starmap(self.predict, zip(frames, poses)))
+        )
+
     def __predict_safe(self, frame: Frame, poses: pose.Result | None) -> Result | None:
         if poses is None:
             return None
@@ -130,5 +146,8 @@ class Estimator:
                         lambda: list(starmap(self.__predict_safe, zip(frames, poses))),
                     )
 
-                case _:
+                case _, _:
                     results = None
+
+                case _:
+                    raise InvalidArgumentException()

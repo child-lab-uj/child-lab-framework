@@ -1,13 +1,26 @@
+from threading import Lock
+from typing import Protocol
+
 import colorama
 
 
+class Representable(Protocol):
+    def __repr__(self) -> str: ...
+
+
 class Logger:
-    @staticmethod
-    def info(*args, title: str = 'Info') -> None:
-        title = colorama.Fore.GREEN + f'[{title}]:' + colorama.Fore.RESET
-        print(title, *args, flush=True)
+    LOCK = Lock()
 
     @staticmethod
-    def error(*args, title: str = 'Error') -> None:
+    def info(*args: Representable, title: str = 'Info') -> None:
+        title = colorama.Fore.GREEN + f'[{title}]:' + colorama.Fore.RESET
+
+        with Logger.LOCK:
+            print(title, *args, flush=True)
+
+    @staticmethod
+    def error(*args: Representable, title: str = 'Error') -> None:
         title = colorama.Fore.RED + f'[{title}]:' + colorama.Fore.RESET
-        print(title, *args, flush=True)
+
+        with Logger.LOCK:
+            print(title, *args, flush=True)

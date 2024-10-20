@@ -3,19 +3,18 @@ import typing
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from enum import IntEnum, auto
-from functools import lru_cache
 
 import numpy as np
 import torch
 import ultralytics
+from torchvision.transforms import Compose, Resize
+from torchvision.transforms.transforms import InterpolationMode
 from ultralytics.engine import results as yolo
 
 from ...core.geometry import area_broadcast
-from ...core.hardware import get_best_device
-from ...core.stream import autostart
-from ...core.video import Frame
-from ...logging.logger import Logger
-from ...typing.array import BoolArray2, FloatArray1, FloatArray2, FloatArray3, IntArray2
+from ...core.sequence import imputed_with_reference_inplace
+from ...core.video import Frame, Properties
+from ...typing.array import FloatArray1, FloatArray2, FloatArray3
 from ...typing.stream import Fiber
 from ...util import MODELS_DIR
 from .duplication import deduplicated
@@ -39,6 +38,9 @@ class Result:
     keypoints: BatchedKeypoints
     actors: list[Actor]
 
+    __centres: FloatArray2 | None = None
+    __depersonificated_keypoints: FloatArray2 | None = None
+
     # NOTE heuristic: sitting actors preserve lexicographic order of bounding boxes
     @staticmethod
     def __ordered(
@@ -55,14 +57,14 @@ class Result:
     def __init__(
         self,
         n_detections: int,
-        boxes: yolo.Boxes,
-        keypoints: yolo.Keypoints,
+        boxes: BatchedBoxes,
+        keypoints: BatchedKeypoints,
         actors: list[Actor],
     ) -> None:
         self.n_detections = n_detections
         self.boxes, self.keypoints, self.actors = Result.__ordered(
-            typing.cast(BatchedBoxes, boxes.data.cpu().numpy()),  # pyright: ignore
-            typing.cast(BatchedKeypoints, keypoints.data.cpu().numpy()),  # pyright: ignore
+            boxes,
+            keypoints,
             actors,
         )
 
@@ -70,63 +72,69 @@ class Result:
         return zip(self.actors, self.boxes, self.keypoints)
 
     @property
-    @lru_cache(1)
     def centres(self) -> FloatArray2:
+        if self.__centres is not None:
+            return self.__centres
+
         keypoints = self.keypoints.view()
-        return (
+
+        centres = (
             keypoints[:, YoloKeypoint.RIGHT_SHOULDER, :2]
             + keypoints[:, YoloKeypoint.LEFT_SHOULDER, :2]
         ) / 2.0
 
+        self.__centres = centres
+
+        return centres
+
     @property
-    @lru_cache(1)
     def depersonificated_keypoints(self) -> FloatArray2:
-        return np.concatenate(self.keypoints)
+        if self.__depersonificated_keypoints is not None:
+            return self.__depersonificated_keypoints
 
+        stacked_keypoints = np.concatenate(self.keypoints)
+        self.__depersonificated_keypoints = stacked_keypoints
 
-def common_points_indicator(
-    pose1: Result, pose2: Result, probability_threshold: float
-) -> BoolArray2:
-    joint_probabilities = (
-        pose1.keypoints.view()[:, :, 2] * pose2.keypoints.view()[:, :, 2]
-    )
-    return joint_probabilities >= probability_threshold
-
-
-def shoulders_depth(pose: Result, depth: FloatArray2) -> FloatArray2:
-    shoulders: IntArray2 = pose.keypoints[
-        :, [YoloKeypoint.LEFT_SHOULDER, YoloKeypoint.RIGHT_SHOULDER], :
-    ].astype(np.int32)
-
-    left_x = shoulders.view()[:, 0, 0]
-    left_y = shoulders.view()[:, 0, 1]
-    right_x = shoulders.view()[:, 1, 0]
-    right_y = shoulders.view()[:, 1, 1]
-
-    return depth.view()[[left_y, right_y], [left_x, right_x]]
+        return stacked_keypoints
 
 
 class Estimator:
-    MODEL_PATH: str = str(MODELS_DIR / 'yolov8x-pose-p6.pt')
+    MODEL_PATH: str = str(MODELS_DIR / 'yolov11x-pose.pt')
 
-    max_detections: int
-    threshold: float  # NOTE: currently unused, but may remain for future use
-    detector: ultralytics.YOLO
     executor: ThreadPoolExecutor
     device: torch.device
 
+    model: ultralytics.YOLO
+    to_model: Compose
+
+    input: Properties
+
+    max_detections: int
+    threshold: float  # NOTE: currently unused, but may remain for future use
+
     def __init__(
-        self, executor: ThreadPoolExecutor, *, max_detections: int, threshold: float
+        self,
+        executor: ThreadPoolExecutor,
+        device: torch.device,
+        *,
+        input: Properties,
+        max_detections: int,
+        threshold: float,
     ) -> None:
+        self.executor = executor
+        self.device = device
+
+        self.input = input
+
         self.max_detections = max_detections
         self.threshold = threshold
 
-        self.executor = executor
-        self.detector = ultralytics.YOLO(
-            model=self.MODEL_PATH, task='pose', verbose=False
+        self.model = ultralytics.YOLO(model=self.MODEL_PATH, task='pose', verbose=False)
+        self.to_model = Compose(
+            [
+                Resize((640, 640), interpolation=InterpolationMode.NEAREST),
+            ]
         )
-
-        self.device = get_best_device()
 
     # NOTE heuristic: Children have substantially smaller bounding boxes than adults
     def __detect_child(self, boxes: yolo.Boxes) -> int | None:
@@ -138,21 +146,43 @@ class Estimator:
         return int(torch.argmin(area_broadcast(boxes_data)).item())
 
     def predict(self, frame: Frame) -> Result | None:
-        result = self.detector.predict(frame, verbose=False, device=self.device)
+        result = self.model.predict(frame, verbose=False, device=self.device)
 
-        if result is None or len(result) == 0:
+        if result is None or len(result) == 0 or result.nelements() == 0:  # type: ignore
             return None
 
         return self.__interpret(result[0])
 
+    def predict_batch(self, frames: list[Frame]) -> list[Result] | None:
+        device = self.device
+
+        tensor_frames = [
+            torch.permute(
+                torch.from_numpy(frame).to(device, torch.float32, copy=True),
+                (2, 0, 1),
+            )
+            for frame in frames
+        ]
+
+        frame_batch = self.to_model(torch.stack(tensor_frames)) / 255.0
+
+        detections = self.model.predict(
+            frame_batch, stream=False, verbose=False, device=device
+        )
+
+        return imputed_with_reference_inplace(
+            [self.__interpret(detection) for detection in detections]
+        )
+
     # TODO: JIT
     def __interpret(self, detections: yolo.Results) -> Result | None:
-        Logger.info('Poses detected')
-
         boxes = detections.boxes
         keypoints = detections.keypoints
 
         if boxes is None or keypoints is None:
+            return None
+
+        if boxes.data.nelement() == 0 or keypoints.data.nelement() == 0:  # type: ignore # obvious that these are tensors :v
             return None
 
         boxes, keypoints = deduplicated(boxes, keypoints, self.max_detections)
@@ -163,28 +193,56 @@ class Estimator:
         if (i := self.__detect_child(boxes)) is not None:
             actors[i] = Actor.CHILD
 
-        return Result(n_detections, boxes, keypoints, actors)
+        boxes_cpu = typing.cast(BatchedBoxes, boxes.data.cpu().numpy())  # type: ignore
+        keypoints_cpu = typing.cast(BatchedKeypoints, keypoints.data.cpu().numpy())  # type: ignore
 
-    @autostart
-    async def stream(self) -> Fiber[list[Frame] | None, list[Result | None] | None]:
-        detector = self.detector
+        height_rescale = float(self.input.height) / 640.0
+        width_rescale = float(self.input.width) / 640.0
+
+        boxes_cpu[..., [0, 2]] *= width_rescale
+        boxes_cpu[..., [1, 3]] *= height_rescale
+
+        keypoints_cpu[..., 0] *= width_rescale
+        keypoints_cpu[..., 1] *= height_rescale
+
+        del boxes, keypoints
+        torch.mps.empty_cache()
+
+        return Result(n_detections, boxes_cpu, keypoints_cpu, actors)
+
+    async def stream(self) -> Fiber[list[Frame] | None, list[Result] | None]:
         executor = self.executor
         loop = asyncio.get_running_loop()
         device = self.device
 
-        results: list[Result | None] | None = None
+        model = self.model
+        to_model = self.to_model
+
+        results: list[Result] | None = None
 
         while True:
             match (yield results):
                 case list(frames):
+                    tensor_frames = [
+                        torch.permute(
+                            torch.from_numpy(frame).to(device, torch.float32, copy=True),
+                            (2, 0, 1),
+                        )
+                        for frame in frames
+                    ]
+
+                    frame_batch = to_model(torch.stack(tensor_frames)) / 255.0
+
                     detections = await loop.run_in_executor(
                         executor,
-                        lambda: detector.predict(
-                            frames, stream=False, verbose=False, device=device
+                        lambda: model.predict(
+                            frame_batch, stream=False, verbose=False, device=device
                         ),
                     )
 
-                    results = [self.__interpret(detection) for detection in detections]
+                    results = imputed_with_reference_inplace(
+                        [self.__interpret(detection) for detection in detections]
+                    )
 
                 case _:
                     results = None

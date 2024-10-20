@@ -4,7 +4,6 @@ import typing
 from dataclasses import dataclass
 from typing import Literal
 
-import cv2
 import numpy as np
 from mtcnn.mtcnn import MTCNN as Mtcnn
 
@@ -55,7 +54,7 @@ class Detector:
         self.model = Mtcnn()
 
     def predict(self, image: Frame) -> Result | None:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # type: ignore
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # type: ignore
 
         with contextlib.redirect_stdout(io.StringIO()):
             detection: list[Detection] = self.model.detect_faces(image)

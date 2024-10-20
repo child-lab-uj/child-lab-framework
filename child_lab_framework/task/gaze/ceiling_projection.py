@@ -5,6 +5,7 @@ from itertools import repeat, starmap
 
 import numpy as np
 
+from ...core.sequence import imputed_with_reference_inplace
 from ...core.stream import InvalidArgumentException
 from ...core.video import Properties
 from ...logging import Logger
@@ -132,6 +133,29 @@ class Estimator:
             ),  # assumption about two actors...
         )
 
+    def predict_batch(
+        self,
+        ceiling_poses: list[pose.Result],
+        window_left_gazes: list[gaze.Result] | None,
+        window_right_gazes: list[gaze.Result] | None,
+        window_left_to_ceiling: list[Transformation] | None,
+        window_right_to_ceiling: list[Transformation] | None,
+    ) -> list[Result] | None:
+        return imputed_with_reference_inplace(
+            list(
+                starmap(
+                    self.predict,
+                    zip(
+                        ceiling_poses,
+                        window_left_gazes or repeat(None),
+                        window_right_gazes or repeat(None),
+                        window_left_to_ceiling or repeat(None),
+                        window_right_to_ceiling or repeat(None),
+                    ),
+                )
+            )
+        )
+
     def __predict_safe(
         self,
         ceiling_pose: pose.Result | None,
@@ -183,7 +207,7 @@ class Estimator:
                         ),
                     )
 
-                case None:
+                case None, _, _, _, _:
                     results = None
 
                 case _:

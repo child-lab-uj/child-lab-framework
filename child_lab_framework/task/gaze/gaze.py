@@ -1,18 +1,17 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from itertools import starmap
+from itertools import repeat, starmap
 
-import cv2
 import mini_face as mf
 import numpy as np
-from icecream import ic
 
-from child_lab_framework.core.stream import InvalidArgumentException
-
-from ...core.sequence import imputed_with_zeros_reference_inplace
+from ...core.sequence import (
+    imputed_with_reference_inplace,
+    imputed_with_zeros_reference_inplace,
+)
+from ...core.stream import InvalidArgumentException
 from ...core.video import Frame, Properties
-from ...logging.logger import Logger
 from ...typing.array import FloatArray3, IntArray1
 from ...typing.stream import Fiber
 from ...util import MODELS_DIR as MODELS_ROOT
@@ -31,36 +30,6 @@ class Result:
     directions: FloatArray3
     was_projected: bool = field(default=False)
 
-    # A prototype, currently unused method which can be used to display gaze estimation on side views
-    def projected(self, fx: float, fy: float, cx: float, cy: float) -> Result2d:
-        n_people = len(self.eyes)
-
-        eyes_projection: FloatArray3 = np.zeros((n_people, 2, 2), dtype=np.float32)
-        directions_projection: FloatArray3 = np.zeros((n_people, 2, 2), dtype=np.float32)
-
-        eyes = self.eyes.view()
-        directions = self.directions.view()
-
-        eyes_z_coordinates = eyes[..., -1]
-
-        ic(eyes_z_coordinates)
-
-        eyes_projection[:, :, 0] = eyes[:, :, 0] * (fx / eyes_z_coordinates) + cx
-        eyes_projection[:, :, 1] = eyes[:, :, 1] * (fy / eyes_z_coordinates) + cy
-
-        directions_z_coordinates = directions[..., -1] * 1000
-
-        ic(directions_z_coordinates)
-
-        directions_projection[:, :, 0] = (
-            directions[:, :, 0] * (fx / directions_z_coordinates) + cx
-        )
-        directions_projection[:, :, 1] = (
-            directions[:, :, 1] * (fy / directions_z_coordinates) + cy
-        )
-
-        return Result2d(eyes_projection, directions_projection)
-
 
 type Input = tuple[list[Frame], list[face.Result | None] | None]
 
@@ -68,7 +37,7 @@ type Input = tuple[list[Frame], list[face.Result | None] | None]
 class Estimator:
     MODELS_DIR = str(MODELS_ROOT / 'model')
 
-    properties: Properties
+    input: Properties
 
     optical_center_x: float
     optical_center_y: float
@@ -81,23 +50,23 @@ class Estimator:
         self,
         executor: ThreadPoolExecutor,
         *,
-        properties: Properties,
+        input: Properties,
         wild: bool = False,
         multiple_views: bool = False,
         limit_angles: bool = False,
     ) -> None:
         self.executor = executor
 
-        self.properties = properties
+        self.input = input
 
-        calibration = properties.calibration
+        calibration = input.calibration
         self.optical_center_x, self.optical_center_y = calibration.optical_center
 
         self.extractor = mf.gaze.Extractor(
             mode=mf.PredictionMode.VIDEO,
             focal_length=calibration.focal_length,
             optical_center=calibration.optical_center,
-            fps=properties.fps,
+            fps=input.fps,
             models_directory=self.MODELS_DIR,
         )
 
@@ -107,8 +76,6 @@ class Estimator:
         cx = self.optical_center_x
         cy = self.optical_center_y
         center_shift = np.array((cx, cy, 0.0), dtype=np.float32).reshape(1, 1, -1)
-
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # type: ignore
 
         eyes: list[FloatArray3 | None] = []
         directions: list[FloatArray3 | None] = []
@@ -135,16 +102,22 @@ class Estimator:
             imputed_with_zeros_reference_inplace(directions),
         ):
             case list(eyes_imputed), list(directions_imputed):
-                Logger.info('Gaze estimated')
-
                 return Result(
                     np.concatenate(eyes_imputed, axis=0),
                     np.concatenate(directions_imputed, axis=0),
                 )
 
             case _:
-                Logger.info('No gaze estimated')
                 return None
+
+    def predict_batch(
+        self,
+        frames: list[Frame],
+        faces: list[face.Result],
+    ) -> list[Result] | None:
+        return imputed_with_reference_inplace(
+            list(starmap(self.predict, zip(frames, faces)))
+        )
 
     def __predict_safe(self, frame: Frame, faces: face.Result | None) -> Result | None:
         if faces is None:
@@ -160,10 +133,14 @@ class Estimator:
 
         while True:
             match (yield results):
-                case list(frames), list(faces):
+                case list(frames), faces:
                     results = await loop.run_in_executor(
                         executor,
-                        lambda: list(starmap(self.__predict_safe, zip(frames, faces))),
+                        lambda: list(
+                            starmap(
+                                self.__predict_safe, zip(frames, faces or repeat(None))
+                            )
+                        ),
                     )
 
                 case None:
