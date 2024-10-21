@@ -2,7 +2,7 @@ import numpy as np
 from ...typing.array import IntArray2, FloatArray2, FloatArray3, FloatArray4, PointCloud
 
 
-def to_3D(
+def project_to_3D(
     fx: float,
     fy: float,
     depth: FloatArray2,
@@ -60,7 +60,9 @@ def make_point_cloud(
     u, v = np.meshgrid(u, v)
 
     # Extract the depth and RGB channels
-    xyz = to_3D(fx, fy, rgbd[:, :, 3], cx, cy, u, v)  # Using depth channel (3rd index)
+    xyz = project_to_3D(
+        fx, fy, rgbd[:, :, 3], cx, cy, u, v
+    )  # Using depth channel (3rd index)
     rgb = rgbd[:, :, :3]  # Extract the RGB channels
 
     # Concatenate the xyz coordinates with the RGB values
