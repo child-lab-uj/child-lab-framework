@@ -20,20 +20,20 @@ def main() -> None:
     gpu = torch.device('mps')
 
     ceiling_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/ceiling.mp4',
+        'dev/data/aru codes preset 20_09_24/Media/Kamera 1/20.09.2024 14_37_04 (UTC+02_00).avi',
         perspective=Perspective.CEILING,
         batch_size=BATCH_SIZE,
     )
 
     window_left_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/window_left.mp4',
+        'dev/data/aru codes preset 20_09_24/Media/Kamera 2/20.09.2024 14_37_04 (UTC+02_00).avi',
         perspective=Perspective.WINDOW_LEFT,
         batch_size=BATCH_SIZE,
         like=ceiling_reader.properties,
     )
 
     window_right_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/window_right.mp4',
+        'dev/data/aru codes preset 20_09_24/Media/Kamera 3/20.09.2024 14_37_04 (UTC+02_00).avi',
         perspective=Perspective.WINDOW_RIGHT,
         batch_size=BATCH_SIZE,
         like=ceiling_reader.properties,

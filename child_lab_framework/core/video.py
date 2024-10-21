@@ -122,6 +122,7 @@ class Reader:
 
         input_properties = Properties(width, height, fps, perspective)
         self.__input_properties = input_properties
+
         self.__mimicked_properties = self.properties = copy(like) or input_properties
         self.properties.perspective = perspective
 
