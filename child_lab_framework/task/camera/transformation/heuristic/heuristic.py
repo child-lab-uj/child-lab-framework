@@ -2,6 +2,7 @@ import asyncio
 from concurrent.futures.thread import ThreadPoolExecutor
 from itertools import starmap
 
+from .....core.sequence import imputed_with_reference_inplace
 from .....core.video import Properties
 from .....typing.array import FloatArray1, FloatArray2
 from .....typing.stream import Fiber
@@ -37,7 +38,6 @@ class Estimator:
         keypoint_threshold: float = 0.25,
     ) -> None:
         self.from_view = from_view
-
         self.to_view = to_view
         self.to_view_intrinsics = to_view.calibration.intrinsics()[:3, :3]
         self.to_view_distortion = to_view.calibration.distortion()
@@ -72,6 +72,27 @@ class Estimator:
 
             case None:
                 return None
+
+    def predict_batch(
+        self,
+        from_poses: list[pose.Result],
+        to_poses: list[pose.Result],
+        from_depths: list[FloatArray2],
+        to_depths: list[FloatArray2],
+    ) -> list[Result] | None:
+        return imputed_with_reference_inplace(
+            list(
+                starmap(
+                    self.predict,
+                    zip(
+                        from_poses,
+                        to_poses,
+                        from_depths,
+                        to_depths,
+                    ),
+                )
+            )
+        )
 
     def __predict_safe(
         self,

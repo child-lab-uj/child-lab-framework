@@ -1,10 +1,14 @@
 import typing
+
 import numpy as np
 
 
 def imputed_with_reference_inplace[T](sequence: list[T | None]) -> list[T] | None:
     if all([element is not None for element in sequence]):
         return typing.cast(list[T], sequence)
+
+    if all(element is None for element in sequence):
+        return None
 
     n = len(sequence)
     i = 0
@@ -26,9 +30,6 @@ def imputed_with_reference_inplace[T](sequence: list[T | None]) -> list[T] | Non
 
         for j in range(i):
             sequence[j] = closest_not_none
-
-    if all(element is None for element in sequence):
-        return None
 
     return typing.cast(list[T], sequence)
 

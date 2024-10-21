@@ -1,147 +1,130 @@
 import asyncio
-from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from itertools import repeat, starmap
 
-from ...core.algebra import normalized_3d
-from ...core.stream import autostart
-from ...core.video import Properties
-from ...typing.array import FloatArray1, FloatArray2, FloatArray3
+import mini_face as mf
+import numpy as np
+
+from ...core.sequence import (
+    imputed_with_reference_inplace,
+    imputed_with_zeros_reference_inplace,
+)
+from ...core.stream import InvalidArgumentException
+from ...core.video import Frame, Properties
+from ...typing.array import FloatArray3, IntArray1
 from ...typing.stream import Fiber
-from .. import face, pose
-from ..camera.transformation import Result as Transformation
-from . import ceiling_baseline, side_correction
-
-# Multi-camera gaze direction estimation without strict algebraic camera models:
-# 1. estimate actor's skeleton on each frame in both cameras
-#    (heuristic: adults' keypoints have higher variance, children have smaller bounding boxes)
-# 2. compute a ceiling baseline vector (perpendicular to shoulder line in a ceiling camera)
-# 3. detect actor's face on the other camera
-# 4. compute the offset-baseline vector (normal to face, Wim's MediaPipe solution')
-# 5. Rotate it to the ceiling camera's space and combine with the ceiling baseline
+from ...util import MODELS_DIR as MODELS_ROOT
+from .. import face
 
 
-type Input = tuple[
-    list[pose.Result | None] | None,
-    list[pose.Result | None] | None,
-    list[pose.Result | None] | None,
-    list[face.Result | None] | None,
-    list[face.Result | None] | None,
-    list[Transformation | None] | None,
-    list[Transformation | None] | None,
-]
+@dataclass
+class Result2d:
+    eyes: FloatArray3
+    directions: FloatArray3
 
 
 @dataclass
 class Result:
-    centres: FloatArray2
-    versors: FloatArray2
+    eyes: FloatArray3
+    directions: FloatArray3
+    was_projected: bool = field(default=False)
 
-    def iter(self) -> Iterable[tuple[FloatArray1, FloatArray1]]:
-        return zip(self.centres, self.versors)
+
+type Input = tuple[list[Frame], list[face.Result | None] | None]
 
 
 class Estimator:
-    BASELINE_WEIGHT: float = 0.5
-    CORRECTION_WEIGHT: float = 1.0 - BASELINE_WEIGHT
+    MODELS_DIR = str(MODELS_ROOT / 'model')
 
-    ceiling_properties: Properties
-    window_left_properties: Properties
-    window_right_properties: Properties
+    input: Properties
+
+    optical_center_x: float
+    optical_center_y: float
+
+    extractor: mf.gaze.Extractor
 
     executor: ThreadPoolExecutor
 
     def __init__(
         self,
         executor: ThreadPoolExecutor,
-        ceiling_properties: Properties,
-        window_left_properties: Properties,
-        window_right_properties: Properties,
+        *,
+        input: Properties,
+        wild: bool = False,
+        multiple_views: bool = False,
+        limit_angles: bool = False,
     ) -> None:
         self.executor = executor
-        self.ceiling_properties = ceiling_properties
-        self.window_left_properties = window_left_properties
-        self.window_right_properties = window_right_properties
 
-    # TODO: implement
-    def predict(
+        self.input = input
+
+        calibration = input.calibration
+        self.optical_center_x, self.optical_center_y = calibration.optical_center
+
+        self.extractor = mf.gaze.Extractor(
+            mode=mf.PredictionMode.VIDEO,
+            focal_length=calibration.focal_length,
+            optical_center=calibration.optical_center,
+            fps=input.fps,
+            models_directory=self.MODELS_DIR,
+        )
+
+    def predict(self, frame: Frame, faces: face.Result) -> Result | None:
+        extractor = self.extractor
+
+        cx = self.optical_center_x
+        cy = self.optical_center_y
+        center_shift = np.array((cx, cy, 0.0), dtype=np.float32).reshape(1, 1, -1)
+
+        eyes: list[FloatArray3 | None] = []
+        directions: list[FloatArray3 | None] = []
+
+        box: IntArray1
+
+        for box in faces.boxes:
+            region = box.astype(np.uint32)
+            region[2] -= region[0]
+            region[3] -= region[1]
+
+            detection = extractor.predict(frame, region)
+
+            if detection is None:
+                eyes.append(None)
+                directions.append(None)
+                continue
+
+            eyes.append(detection.eyes + center_shift)
+            directions.append(detection.directions)
+
+        match (
+            imputed_with_zeros_reference_inplace(eyes),
+            imputed_with_zeros_reference_inplace(directions),
+        ):
+            case list(eyes_imputed), list(directions_imputed):
+                return Result(
+                    np.concatenate(eyes_imputed, axis=0),
+                    np.concatenate(directions_imputed, axis=0),
+                )
+
+            case _:
+                return None
+
+    def predict_batch(
         self,
-        ceiling_pose: pose.Result | None,
-        window_left_pose: pose.Result | None,
-        window_right_pose: pose.Result | None,
-        window_left_face: face.Result | None,
-        window_right_face: face.Result | None,
-    ):
-        raise NotImplementedError()
+        frames: list[Frame],
+        faces: list[face.Result],
+    ) -> list[Result] | None:
+        return imputed_with_reference_inplace(
+            list(starmap(self.predict, zip(frames, faces)))
+        )
 
-    # TODO: JIT estimations
-    def __predict(
-        self,
-        ceiling_pose: list[pose.Result | None],
-        window_left_pose: list[pose.Result | None] | None,
-        window_right_pose: list[pose.Result | None] | None,
-        window_left_face: list[face.Result | None] | None,
-        window_right_face: list[face.Result | None] | None,
-        window_left_to_ceiling: list[Transformation | None] | None,
-        window_right_to_ceiling: list[Transformation | None] | None,
-    ) -> list[Result | None] | None:
-        baseline = ceiling_baseline.estimate(ceiling_pose, None)
-
-        if baseline is None:
+    def __predict_safe(self, frame: Frame, faces: face.Result | None) -> Result | None:
+        if faces is None:
             return None
 
-        collective_centres, baseline_vectors = baseline
+        return self.predict(frame, faces)
 
-        left_corrections = (
-            side_correction.estimate(
-                ceiling_pose, window_left_pose, window_left_face, window_left_to_ceiling
-            )
-            if window_left_pose is not None
-            and window_left_face is not None
-            and window_left_to_ceiling is not None
-            else None
-        )
-
-        right_corrections = (
-            side_correction.estimate(
-                ceiling_pose,
-                window_right_pose,
-                window_right_face,
-                window_right_to_ceiling,
-            )
-            if window_right_pose is not None
-            and window_right_face is not None
-            and window_right_to_ceiling is not None
-            else None
-        )
-
-        baseline_vectors *= self.BASELINE_WEIGHT
-        result_vectors: FloatArray3 = baseline_vectors
-
-        match (left_corrections, right_corrections):
-            case None, None:
-                ...
-
-            case left, None:
-                result_vectors += left * self.CORRECTION_WEIGHT
-
-            case None, right:
-                result_vectors += right * self.CORRECTION_WEIGHT
-
-            case left, right:
-                weight = self.CORRECTION_WEIGHT / 2.0
-                result_vectors += left * weight
-                result_vectors += right * weight
-
-        result_vectors = normalized_3d(result_vectors)
-
-        return [
-            Result(centres, vectors)
-            for (centres, vectors) in zip(collective_centres, result_vectors)
-        ]
-
-    # NOTE: heuristic idea: actors seen from right and left are in reversed lexicographic order
-    @autostart
     async def stream(self) -> Fiber[Input | None, list[Result | None] | None]:
         executor = self.executor
         loop = asyncio.get_running_loop()
@@ -150,27 +133,18 @@ class Estimator:
 
         while True:
             match (yield results):
-                case (
-                    list(ceiling_pose),
-                    window_left_pose,
-                    window_right_pose,
-                    window_left_face,
-                    window_right_face,
-                    window_left_to_ceiling,
-                    window_right_to_ceiling,
-                ):
+                case list(frames), faces:
                     results = await loop.run_in_executor(
                         executor,
-                        lambda: self.__predict(
-                            ceiling_pose,
-                            window_left_pose,
-                            window_right_pose,
-                            window_left_face,
-                            window_right_face,
-                            window_left_to_ceiling,
-                            window_right_to_ceiling,
+                        lambda: list(
+                            starmap(
+                                self.__predict_safe, zip(frames, faces or repeat(None))
+                            )
                         ),
                     )
 
-                case _:
+                case None:
                     results = None
+
+                case _:
+                    raise InvalidArgumentException()
