@@ -4,12 +4,12 @@ import typing
 from copy import copy
 from dataclasses import dataclass
 from enum import Enum
-from functools import lru_cache
+import yaml
 
 import cv2
 import numpy as np
 
-from ..typing.array import FloatArray1, FloatArray2
+from ..typing.array import FloatArray1, FloatArray2, FloatArray3
 from ..typing.stream import Fiber
 from ..typing.video import Frame
 
@@ -25,12 +25,14 @@ class Perspective(Enum):
     WINDOW_LEFT = 'Window Left'
     WALL_RIGHT = 'Wall Right'
     WALL_LEFT = 'Wall Left'
+    OTHER = 'Other'
 
 
 @dataclass(unsafe_hash=True, frozen=True)
 class Calibration:
     optical_center: tuple[float, float]
     focal_length: tuple[float, float]
+    distortion: FloatArray1
 
     @staticmethod
     def heuristic(width: int, height: int) -> 'Calibration':
@@ -42,24 +44,57 @@ class Calibration:
         fx = (fx + fy) / 2.0
         fy = fx
 
-        return Calibration((cx, cy), (fx, fy))
+        distortion = np.zeros(5, dtype=np.float32)
 
-    @lru_cache(1)
+        return Calibration((cx, cy), (fx, fy), distortion)
+
+    # @lru_cache(1)
     def flat(self) -> tuple[float, float, float, float]:
         return (*self.focal_length, *self.optical_center)
 
-    @lru_cache(1)
+    @property
     def intrinsics(self) -> FloatArray2:
-        m = np.zeros((3, 4), dtype=np.float32)
+        m = np.zeros((3, 3), dtype=np.float32)
         m[0, 0], m[1, 1] = self.focal_length
         m[0:2, 2] = self.optical_center
         m[2, 2] = 1.0
 
         return m
 
-    @lru_cache(1)
-    def distortion(self) -> FloatArray1:
-        return np.zeros(4, dtype=np.float32)
+    def depth_to_3D(self, depth: FloatArray2) -> FloatArray3:
+        # TODO: remove distortion using opencv and distortion array, check if the shape is okay
+        u = np.arange(depth.shape[1])
+        v = np.arange(depth.shape[0])
+        u, v = np.meshgrid(u, v)
+
+        x = (u - self.optical_center[0]) * depth / self.focal_length[0]
+        y = (v - self.optical_center[1]) * depth / self.focal_length[1]
+        z = depth
+
+        # Expand dimensions to make it 3D
+        x = np.expand_dims(x, axis=-1)
+        y = np.expand_dims(y, axis=-1)
+        z = np.expand_dims(z, axis=-1)
+
+        return np.concatenate((x, y, z), axis=-1)
+
+    def to_yaml(self, file_path: str) -> None:
+        data = {
+            'optical_center': self.optical_center,
+            'focal_length': self.focal_length,
+            'distortion': self.distortion.tolist(),
+        }
+        with open(file_path, 'w+') as file:
+            yaml.dump(data, file)
+
+    @staticmethod
+    def from_yaml(file_path: str) -> 'Calibration':
+        with open(file_path, 'r') as file:
+            data = yaml.safe_load(file)
+            optical_center = tuple(data['optical_center'])
+            focal_length = tuple(data['focal_length'])
+            distortion = np.array(data['distortion'], dtype=np.float32)
+            return Calibration(optical_center, focal_length, distortion)
 
 
 class Properties:

@@ -100,8 +100,8 @@ class Detector:
         batched_corners = np.stack(corners)
 
         calibration = self.calibration
-        intrinsics = calibration.intrinsics()
-        distortion = calibration.distortion()
+        intrinsics = calibration.intrinsics
+        distortion = calibration.distortion
 
         marker_world_coordinates = self.marker_world_coordinates
 

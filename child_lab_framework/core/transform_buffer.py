@@ -5,7 +5,7 @@ from pytransform3d.transform_manager import TransformManager
 from threading import Lock
 from dataclasses import dataclass, field
 
-from ...typing.array import FloatArray2, FloatArray1
+from ..typing.array import FloatArray2, FloatArray1
 
 
 class TransformBuffer:
@@ -26,7 +26,7 @@ class TransformBuffer:
             }
 
         @classmethod
-        def from_dict(cls, data):
+        def from_dict(cls, data: dict):
             return cls(
                 input_frame=data['input_frame'],
                 output_frame=data['output_frame'],
@@ -38,14 +38,14 @@ class TransformBuffer:
     class State:
         transforms: list['TransformBuffer.Transform'] = field(default_factory=list)
 
-        def save_to_yaml(self, file_path: str):
+        def save_yaml(self, file_path: str):
             data = {'transforms': [t.to_dict() for t in self.transforms]}
 
-            with open(file_path, 'w') as yaml_file:
+            with open(file_path, 'w+') as yaml_file:
                 yaml.dump(data, yaml_file)
 
         @classmethod
-        def load_from_yaml(cls, file_path: str) -> 'TransformBuffer.State':
+        def load_yaml(cls, file_path: str) -> 'TransformBuffer.State':
             with open(file_path, 'r') as yaml_file:
                 data = yaml.load(yaml_file, Loader=yaml.SafeLoader)
 
@@ -97,18 +97,27 @@ class TransformBuffer:
 
         return rotation, translation
 
-    def transform(self, input_frame: str, output_frame: str, point: FloatArray2):
-        rotation, translation = self.get_transform(
-            input_frame, output_frame
-        )
+    def transform(
+        self, input_frame: str, output_frame: str, point: FloatArray1
+    ) -> FloatArray1:
+        rotation, translation = self.get_transform(input_frame, output_frame)
         return (rotation @ point) + translation
+
+    def transform_available(self, input_frame: str, output_frame: str) -> bool:
+        try:
+            self.get_transform(input_frame, output_frame)
+            return True
+        except KeyError:
+            return False
+
+    @property
+    def transforms(self):
+        return self.__tm.transforms
 
     def get_state(self) -> State:
         state = self.State()
         for input_frame, output_frame in self.__tm.transforms:
-            rotation, translation = self.get_transform(
-                input_frame, output_frame
-            )
+            rotation, translation = self.get_transform(input_frame, output_frame)
 
             state.transforms.append(
                 self.Transform(
@@ -132,18 +141,29 @@ if __name__ == '__main__':
 
     p = np.array([26, 21, 34])
 
-    obs = tf_buffer.add_transform(
+    tf_buffer.add_transform(
         input_frame='root', output_frame='test', rotation=R, translation=p
     )
 
+    tf_buffer.add_transform(
+        input_frame='test', output_frame='test2', rotation=R, translation=p
+    )
+
+    tf_buffer.add_transform(
+        input_frame='test3', output_frame='test4', rotation=R, translation=p
+    )
+
     state = tf_buffer.get_state()
-    state.save_to_yaml('/tmp/test.yaml')
-    state2 = TransformBuffer.State.load_from_yaml('/tmp/test.yaml')
+    state.save_yaml('/tmp/test.yaml')
+    state2 = TransformBuffer.State.load_yaml('/tmp/test.yaml')
     tf_buffer = TransformBuffer.from_state(state2)
 
     point = np.array([12, 26, 13])
     print('original:', *point, sep='\n', end='\n\n')
-    transformed = tf_buffer.transform('root', 'test', point)
-    print('root -> test: ', *transformed, sep='\n', end='\n\n')
-    transformed = tf_buffer.transform('test', 'root', transformed)
-    print('test -> root: ', *transformed, sep='\n', end='\n\n')
+    transformed = tf_buffer.transform('root', 'test2', point)
+    print('root -> test2: ', *transformed, sep='\n', end='\n\n')
+    transformed = tf_buffer.transform('test2', 'root', transformed)
+    print('test2 -> root: ', *transformed, sep='\n', end='\n\n')
+
+    print('test2 -> root available: ', tf_buffer.transform_available('test2', 'root'))
+    print('test2 -> test3 available: ', tf_buffer.transform_available('test2', 'test3'))

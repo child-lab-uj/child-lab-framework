@@ -3,7 +3,7 @@ import sys
 from colorama import Fore
 
 # from .demo import main
-from .demo_sequential import main
+from .procedure.demo_sequential import main
 
 if __name__ == '__main__':
     try:
