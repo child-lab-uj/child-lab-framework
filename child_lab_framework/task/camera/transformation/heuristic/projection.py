@@ -2,6 +2,7 @@ import typing
 
 import cv2
 import numpy as np
+from icecream import ic
 
 from .....task import pose
 from .....typing.array import (
@@ -17,7 +18,16 @@ def common_points_indicator(
 ) -> IntArray1:
     probabilities = np.minimum(points1.view()[:, -1], points2.view()[:, -1])
 
-    indicator = np.squeeze(np.where(probabilities >= confidence_threshold))
+    coordinate_products = (
+        points1.view()[:, 0]
+        * points1.view()[:, 1]
+        * points2.view()[:, 0]
+        * points2.view()[:, 1]
+    )
+
+    indicator = np.squeeze(
+        np.where((probabilities >= confidence_threshold) & (coordinate_products > 0.0))
+    )
 
     return typing.cast(IntArray1, indicator)
 
@@ -39,7 +49,7 @@ def estimate(
     to_keypoints = to_pose.depersonificated_keypoints
     common = common_points_indicator(from_keypoints, to_keypoints, confidence_threshold)
 
-    if common.sum() < 3:
+    if common.size < 3:
         return None
 
     from_points_2d: FloatArray2 = from_keypoints.view()[common][:, [0, 1]]
@@ -54,14 +64,22 @@ def estimate(
 
     from_points_3d: FloatArray3 = np.concatenate((from_points_2d, from_depths), axis=1)
 
-    success, rotation, translation = cv2.solvePnP(
-        from_points_3d,
-        to_points_2d,
-        intrinsics_matrix,
-        distortion,
-        useExtrinsicGuess=True,
-        flags=cv2.SOLVEPNP_SQPNP,
-    )
+    try:
+        success, rotation, translation = cv2.solvePnP(
+            from_points_3d,
+            to_points_2d,
+            intrinsics_matrix,
+            distortion,
+            useExtrinsicGuess=True,
+            flags=cv2.SOLVEPNP_SQPNP,
+        )
+
+    except Exception as e:
+        ic(from_keypoints[common])
+        ic(to_keypoints[common])
+        ic(from_points_3d)
+        ic(to_points_2d)
+        raise e
 
     if not success:
         return None
