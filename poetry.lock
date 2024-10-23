@@ -394,7 +394,7 @@ torchvision = "^0.20.0"
 
 [package.source]
 type = "git"
-url = "git@github.com:child-lab-uj/depth-pro.git"
+url = "https://github.com/child-lab-uj/depth-pro.git"
 reference = "HEAD"
 resolved_reference = "71858b621ec123443c9fbf62f70ffe11a813b6b6"
 
@@ -3135,4 +3135,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "d507e38f7ace52753d97c59cae85c8cd09c993c683ab24e76b0079a141898255"
+content-hash = "502cd6985714a46f2941ca82be24b94ef7b9ec7df3d3fa0f0b0d038385b65701"
