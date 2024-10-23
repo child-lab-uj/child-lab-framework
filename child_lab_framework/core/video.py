@@ -5,6 +5,7 @@ from copy import copy
 from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -110,6 +111,9 @@ class Reader:
         batch_size: int,
         like: Properties | None = None,
     ) -> None:
+        if not Path(source).is_file():
+            raise RuntimeError(f"Invalid video file {source}")
+
         self.source = source
         self.batch_size = batch_size
 

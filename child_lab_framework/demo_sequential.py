@@ -15,25 +15,26 @@ BATCH_SIZE = 32
 def main() -> None:
     # ignore exceeded allocation limit on MPS - very important!
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
+    os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
     executor = ThreadPoolExecutor(max_workers=8)
-    gpu = torch.device('mps')
+    gpu = torch.device('cuda')
 
     ceiling_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/ceiling.mp4',
+        'dev/data/ceiling.avi',
         perspective=Perspective.CEILING,
         batch_size=BATCH_SIZE,
     )
 
     window_left_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/window_left.mp4',
+        'dev/data/window_left.avi',
         perspective=Perspective.WINDOW_LEFT,
         batch_size=BATCH_SIZE,
         like=ceiling_reader.properties,
     )
 
     window_right_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/window_right.mp4',
+        'dev/data/window_right.avi',
         perspective=Perspective.WINDOW_RIGHT,
         batch_size=BATCH_SIZE,
         like=ceiling_reader.properties,
@@ -45,7 +46,7 @@ def main() -> None:
         executor,
         window_left_reader.properties,
         ceiling_reader.properties,
-        keypoint_threshold=0.35,
+        keypoint_threshold=0.41,
     )
 
     pose_estimator = pose.Estimator(
@@ -89,19 +90,19 @@ def main() -> None:
     )
 
     ceiling_writer = Writer(
-        'dev/output/sequential/ceiling.mp4',
+        'dev/output/ceiling.mp4',
         ceiling_reader.properties,
         output_format=Format.MP4,
     )
 
     window_left_writer = Writer(
-        'dev/output/sequential/window_left.mp4',
+        'dev/output/window_left.mp4',
         window_left_reader.properties,
         output_format=Format.MP4,
     )
 
     window_right_writer = Writer(
-        'dev/output/sequential/window_right.mp4',
+        'dev/output/window_right.mp4',
         window_right_reader.properties,
         output_format=Format.MP4,
     )
