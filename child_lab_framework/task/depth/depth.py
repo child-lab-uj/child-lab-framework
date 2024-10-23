@@ -4,7 +4,7 @@ from typing import Literal
 
 import numpy
 import torch
-from depth_pro import depth_pro as dp
+from depth_pro import Config, DepthPro
 from torchvision.transforms import Compose, ConvertImageDtype, Normalize, Resize
 
 from ...core.sequence import imputed_with_reference_inplace
@@ -28,13 +28,15 @@ def to_frame(depth_map: FloatArray2) -> Frame:
 
 
 class Estimator:
-    MODEL_PATH = str(MODELS_DIR / 'depth_pro.pt')
+    MODEL_PATH = MODELS_DIR / 'depth_pro.pt'
     MODEL_INPUT_SIZE = (616, 1064)
     PADDING_BORDER_COLOR = (123.675, 116.28, 103.53)
 
     executor: ThreadPoolExecutor
     device: torch.device
-    model: dp.DepthPro
+
+    model: DepthPro
+    model_config: Config
 
     input: Properties
 
@@ -48,14 +50,12 @@ class Estimator:
         self.device = device
         self.input = input
 
-        config = dp.DEFAULT_MONODEPTH_CONFIG_DICT
-        config.checkpoint_uri = self.MODEL_PATH
+        config = Config(checkpoint=self.MODEL_PATH)
+        self.model_config = config
 
         memory_usage = float(torch.mps.current_allocated_memory()) / 1024.0 / 1024.0
 
-        self.model, _ = dp.create_model_and_transforms(
-            config, device, precision=torch.half
-        )
+        self.model = DepthPro(config, device, torch.half)
 
         memory_usage_after_creation = (
             float(torch.mps.current_allocated_memory()) / 1024.0 / 1024.0
@@ -90,8 +90,8 @@ class Estimator:
         # shape of the input after transposition: 1 x n_channels x height x width
 
         # TODO: return the tensor itself without transferring (Issue #6)
-        result: DepthProResult = self.model.infer(input)  # type: ignore  # That's why returning a `Mapping` isn't a good idea :v
-        depth = self.from_model(result['depth']).cpu().numpy()
+        result = self.model.predict(input)
+        depth = self.from_model(result.depth).cpu().numpy()
         del result
 
         return depth
