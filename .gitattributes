@@ -1,3 +1,27 @@
 *.ipynb linguist-language=Python
 model/metric3d-vit-small.onnx filter=lfs diff=lfs merge=lfs -text
 model/yolov11x-pose.pt filter=lfs diff=lfs merge=lfs -text
+model/depth_pro.pt filter=lfs diff=lfs merge=lfs -text
+model/model/detection_validation filter=lfs diff=lfs merge=lfs -text
+model/model/main_clm_wild.txt filter=lfs diff=lfs merge=lfs -text
+model/model/model_inner filter=lfs diff=lfs merge=lfs -text
+model/model/clm_general.txt filter=lfs diff=lfs merge=lfs -text
+model/model/clnf_wild.txt filter=lfs diff=lfs merge=lfs -text
+model/model/main_clm_general.txt filter=lfs diff=lfs merge=lfs -text
+model/model/main_clnf_general.txt filter=lfs diff=lfs merge=lfs -text
+model/model/pdms filter=lfs diff=lfs merge=lfs -text
+model/model/tris_68.txt filter=lfs diff=lfs merge=lfs -text
+model/model/tris_68_full.txt filter=lfs diff=lfs merge=lfs -text
+model/model/cen_general.txt filter=lfs diff=lfs merge=lfs -text
+model/model/early_term_cen_of.txt filter=lfs diff=lfs merge=lfs -text
+model/model/main_ceclm_general.txt filter=lfs diff=lfs merge=lfs -text
+model/model/mtcnn_detector filter=lfs diff=lfs merge=lfs -text
+model/model/clm_wild.txt filter=lfs diff=lfs merge=lfs -text
+model/model/clnf_general.txt filter=lfs diff=lfs merge=lfs -text
+model/model/main_clnf_demos.txt filter=lfs diff=lfs merge=lfs -text
+model/model/main_clnf_multi_pie.txt filter=lfs diff=lfs merge=lfs -text
+model/model/main_clnf_wild.txt filter=lfs diff=lfs merge=lfs -text
+model/model/model_eye filter=lfs diff=lfs merge=lfs -text
+model/model/patch_experts filter=lfs diff=lfs merge=lfs -text
+model/model/clnf_multi_pie.txt filter=lfs diff=lfs merge=lfs -text
+model/model/haarAlign.txt filter=lfs diff=lfs merge=lfs -text
