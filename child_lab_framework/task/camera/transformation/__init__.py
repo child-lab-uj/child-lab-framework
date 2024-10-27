@@ -1,4 +1,4 @@
-from . import arudice, heuristic
+from . import aruco, heuristic
 from .transformation import Result
 
-__all__ = ['arudice', 'heuristic', 'Result']
+__all__ = ['aruco', 'heuristic', 'Result']

@@ -1,9 +1,9 @@
-import subprocess
 from os import listdir
+import subprocess
 
-from ..logging import Logger
 from ..util import WIDGETS_DIR, CLFException
 from .client import get_default_client
+from ..logging import Logger
 
 
 # Builds a docker widget if not already built, returns its tag.

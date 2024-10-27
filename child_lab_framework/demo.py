@@ -3,10 +3,10 @@ from concurrent.futures import ThreadPoolExecutor
 
 import torch
 
-from ..core.flow import Machinery
-from ..core.video import Format, Perspective, Reader, Writer
-from ..task import face, gaze, pose
-from ..task.visualization import Visualizer
+from .core.flow import Machinery
+from .core.video import Format, Perspective, Reader, Writer
+from .task import face, gaze, pose
+from .task.visualization import Visualizer
 
 BATCH_SIZE = 32
 
