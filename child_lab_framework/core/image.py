@@ -1,10 +1,10 @@
 import typing
-
-import cv2
 import numpy as np
+import cv2
 
 from ..typing.array import FloatArray2, IntArray2
 from ..typing.video import Frame
+
 
 Input = typing.TypeVar('Input', covariant=True, bound=np.ndarray)
 
