@@ -3,17 +3,17 @@ from concurrent.futures import ThreadPoolExecutor
 
 import torch
 
-from .core.video import Format, Perspective, Reader, Writer
-from .logging import Logger
-from .task import depth, face, gaze, pose
-from .task.camera import transformation
-from .task.visualization import Visualizer
+from ..core.video import Format, Perspective, Reader, Writer
+from ..logging import Logger
+from ..task import depth, face, gaze, pose
+from ..task.camera import transformation
+from ..task.visualization import Visualizer
 
 BATCH_SIZE = 32
 
 
 def main() -> None:
-    # ignore exceeded allocation limit on MPS - very important!
+    # ignore exceeded allocation limit o2n MPS - very important!
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
 
     executor = ThreadPoolExecutor(max_workers=8)

@@ -39,8 +39,8 @@ class Estimator:
     ) -> None:
         self.from_view = from_view
         self.to_view = to_view
-        self.to_view_intrinsics = to_view.calibration.intrinsics()[:3, :3]
-        self.to_view_distortion = to_view.calibration.distortion()
+        self.to_view_intrinsics = to_view.calibration.intrinsics[:3, :3]
+        self.to_view_distortion = to_view.calibration.distortion
 
         self.keypoint_threshold = keypoint_threshold
 
