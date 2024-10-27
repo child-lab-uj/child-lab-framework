@@ -1,5 +1,6 @@
 import numpy as np
-from ...typing.array import IntArray2, FloatArray2, FloatArray4, PointCloud
+
+from ...typing.array import FloatArray2, FloatArray4, IntArray2, PointCloud
 
 
 def project_to_3D(

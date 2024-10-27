@@ -1,58 +1,64 @@
-import yaml
+from dataclasses import dataclass, field
+from threading import Lock
+from typing import Literal, Self
+
 import numpy as np
 import pytransform3d.transformations as pt
+import yaml
 from pytransform3d.transform_manager import TransformManager
-from threading import Lock
-from dataclasses import dataclass, field
 
-from ..typing.array import FloatArray2, FloatArray1
+from ..typing.array import FloatArray1, FloatArray2
+
+type EncodedTransform = dict[
+    Literal['input_frame', 'output_frame', 'rotation', 'translation'], list[float] | str
+]
+
+
+@dataclass
+class Transform:
+    input_frame: str
+    output_frame: str
+    rotation: FloatArray2
+    translation: FloatArray1
+
+    def to_dict(self) -> EncodedTransform:
+        # Convert the numpy arrays to regular lists for YAML compatibility
+        return {
+            'input_frame': self.input_frame,
+            'output_frame': self.output_frame,
+            'rotation': self.rotation.tolist(),
+            'translation': self.translation.tolist(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: EncodedTransform):
+        return cls(
+            input_frame=data['input_frame'],
+            output_frame=data['output_frame'],
+            rotation=np.array(data['rotation']),
+            translation=np.array(data['translation']),
+        )
+
+
+@dataclass
+class State:
+    transforms: list[Transform] = field(default_factory=list)
+
+    def save_yaml(self, file_path: str):
+        data = {'transforms': [t.to_dict() for t in self.transforms]}
+
+        with open(file_path, 'w+') as yaml_file:
+            yaml.dump(data, yaml_file)
+
+    @classmethod
+    def load_yaml(cls, file_path: str) -> Self:
+        with open(file_path, 'r') as yaml_file:
+            data = yaml.load(yaml_file, Loader=yaml.SafeLoader)
+
+        return cls([Transform.from_dict(t) for t in data['transforms']])
 
 
 class TransformBuffer:
-    @dataclass
-    class Transform:
-        input_frame: str
-        output_frame: str
-        rotation: FloatArray2
-        translation: FloatArray1
-
-        def to_dict(self):
-            # Convert the numpy arrays to regular lists for YAML compatibility
-            return {
-                'input_frame': self.input_frame,
-                'output_frame': self.output_frame,
-                'rotation': self.rotation.tolist(),
-                'translation': self.translation.tolist(),
-            }
-
-        @classmethod
-        def from_dict(cls, data: dict):
-            return cls(
-                input_frame=data['input_frame'],
-                output_frame=data['output_frame'],
-                rotation=np.array(data['rotation']),
-                translation=np.array(data['translation']),
-            )
-
-    @dataclass
-    class State:
-        transforms: list['TransformBuffer.Transform'] = field(default_factory=list)
-
-        def save_yaml(self, file_path: str):
-            data = {'transforms': [t.to_dict() for t in self.transforms]}
-
-            with open(file_path, 'w+') as yaml_file:
-                yaml.dump(data, yaml_file)
-
-        @classmethod
-        def load_yaml(cls, file_path: str) -> 'TransformBuffer.State':
-            with open(file_path, 'r') as yaml_file:
-                data = yaml.load(yaml_file, Loader=yaml.SafeLoader)
-
-            return cls(
-                [TransformBuffer.Transform.from_dict(t) for t in data['transforms']]
-            )
-
     def __init__(self):
         self.__tm = TransformManager()
         self.__mutex = Lock()
@@ -88,7 +94,7 @@ class TransformBuffer:
 
     def get_transform(
         self, input_frame: str, output_frame: str
-    ) -> tuple[FloatArray2, FloatArray1]:
+    ) -> tuple[FloatArray2, FloatArray1] | None:
         with self.__mutex:
             tf = self.__tm.get_transform(input_frame, output_frame)
 
@@ -109,10 +115,6 @@ class TransformBuffer:
             return True
         except KeyError:
             return False
-
-    @property
-    def transforms(self):
-        return self.__tm.transforms
 
     def get_state(self) -> State:
         state = self.State()
@@ -155,7 +157,7 @@ if __name__ == '__main__':
 
     state = tf_buffer.get_state()
     state.save_yaml('/tmp/test.yaml')
-    state2 = TransformBuffer.State.load_yaml('/tmp/test.yaml')
+    state2 = State.load_yaml('/tmp/test.yaml')
     tf_buffer = TransformBuffer.from_state(state2)
 
     point = np.array([12, 26, 13])

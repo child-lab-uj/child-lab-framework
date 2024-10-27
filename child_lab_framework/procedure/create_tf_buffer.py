@@ -1,30 +1,34 @@
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Optional
+
 import cv2.aruco as aruco
 import numpy as np
 import torch
-from ..core.transform_buffer import TransformBuffer
-from ..core.video import Perspective, Reader, Calibration
+from tqdm import tqdm
+
 from ..core.algebra import kabsch
+from ..core.transform_buffer import State as TransformBufferState
+from ..core.transform_buffer import TransformBuffer
+from ..core.video import Calibration, Perspective, Reader
 from ..task.camera.detection.marker import (
     Detector as MarkerDetector,
+)
+from ..task.camera.detection.marker import (
     Dictionary as ArucoDictionary,
 )
 from ..task.depth.depth import Estimator as DepthEstimator
-from concurrent.futures import ThreadPoolExecutor
-from tqdm import tqdm
 
 MARKER_PREFIX = '_MARKER'
 
 
-@dataclass
+@dataclass(frozen=True)
 class Input:
     source: str
     frame_of_reference: str
     calibration: Calibration
 
 
-@dataclass
+@dataclass(frozen=True)
 class Config:
     aruco_marker_size: float
     aruco_dictionary: ArucoDictionary
@@ -35,8 +39,8 @@ def create_tf_buffer(
     inputs: list[Input],
     config: Config,
     device: torch.device,
-    initial_tf_state: Optional[TransformBuffer.State] = None,
-) -> TransformBuffer.State:
+    initial_tf_state: TransformBufferState | None = None,
+) -> TransformBufferState:
     assert len(inputs) > 1
 
     def graph_ready(tf_buffer: TransformBuffer):
@@ -87,7 +91,7 @@ def create_tf_buffer(
             detector.calibration = input.calibration
             result = detector.predict(rgb_frame)
 
-            if not result:
+            if result is None:
                 continue
 
             depth = estimator.predict(rgb_frame)

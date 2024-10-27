@@ -1,8 +1,9 @@
-import numpy as np
 import cv2
-from ..task.camera.detection import chessboard
-from ..core.video import Perspective, Reader, Calibration
+import numpy as np
 from tqdm import tqdm
+
+from ..core.video import Calibration, Perspective, Reader
+from ..task.camera.detection import chessboard
 
 
 def calibrate(

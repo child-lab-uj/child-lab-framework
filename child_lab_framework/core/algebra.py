@@ -1,4 +1,5 @@
 from enum import IntEnum
+
 import numpy as np
 
 from ..typing.array import FloatArray1, FloatArray2, FloatArray3, FloatArray4

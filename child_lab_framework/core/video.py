@@ -4,10 +4,10 @@ import typing
 from copy import copy
 from dataclasses import dataclass
 from enum import Enum
-import yaml
 
 import cv2
 import numpy as np
+import yaml
 
 from ..typing.array import FloatArray1, FloatArray2, FloatArray3
 from ..typing.stream import Fiber
