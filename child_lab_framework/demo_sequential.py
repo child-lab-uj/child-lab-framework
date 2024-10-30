@@ -3,6 +3,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 import torch
 
+from child_lab_framework.task import emotions
+
 from .core.video import Format, Perspective, Reader, Writer
 from .logging import Logger
 from .task import depth, face, gaze, pose
@@ -20,33 +22,33 @@ def main() -> None:
     gpu = torch.device('mps')
 
     ceiling_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/ceiling.mp4',
+        '/Users/wojciechbarczynski/child-lab-framework/dev/data/aruco_cubic_ultra_short/ceiling.mp4',
         perspective=Perspective.CEILING,
         batch_size=BATCH_SIZE,
     )
 
     window_left_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/window_left.mp4',
+        '/Users/wojciechbarczynski/child-lab-framework/dev/data/aruco_cubic_ultra_short/window_left.mp4',
         perspective=Perspective.WINDOW_LEFT,
         batch_size=BATCH_SIZE,
         like=ceiling_reader.properties,
     )
 
     window_right_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/window_right.mp4',
+        '/Users/wojciechbarczynski/child-lab-framework/dev/data/aruco_cubic_ultra_short/window_right.mp4',
         perspective=Perspective.WINDOW_RIGHT,
         batch_size=BATCH_SIZE,
         like=ceiling_reader.properties,
     )
 
-    depth_estimator = depth.Estimator(executor, gpu, input=ceiling_reader.properties)
+    # depth_estimator = depth.Estimator(executor, gpu, input=ceiling_reader.properties)
 
-    transformation_estimator = transformation.heuristic.Estimator(
-        executor,
-        window_left_reader.properties,
-        ceiling_reader.properties,
-        keypoint_threshold=0.35,
-    )
+    # transformation_estimator = transformation.heuristic.Estimator(
+    #     executor,
+    #     window_left_reader.properties,
+    #     ceiling_reader.properties,
+    #     keypoint_threshold=0.35,
+    # )
 
     pose_estimator = pose.Estimator(
         executor,
@@ -62,22 +64,25 @@ def main() -> None:
         threshold=0.1,
     )
 
-    window_left_gaze_estimator = gaze.Estimator(
-        executor,
-        input=window_left_reader.properties,
-    )
+    emotions_estimator_left = emotions.Estimator(executor)
+    emotions_estimator_right = emotions.Estimator(executor)
 
-    window_right_gaze_estimator = gaze.Estimator(
-        executor,
-        input=window_right_reader.properties,
-    )
+    # window_left_gaze_estimator = gaze.Estimator(
+    #     executor,
+    #     input=window_left_reader.properties,
+    # )
 
-    ceiling_gaze_estimator = gaze.ceiling_projection.Estimator(
-        executor,
-        ceiling_reader.properties,
-        window_left_reader.properties,
-        window_right_reader.properties,
-    )
+    # window_right_gaze_estimator = gaze.Estimator(
+    #     executor,
+    #     input=window_right_reader.properties,
+    # )
+
+    # ceiling_gaze_estimator = gaze.ceiling_projection.Estimator(
+    #     executor,
+    #     ceiling_reader.properties,
+    #     window_left_reader.properties,
+    #     window_right_reader.properties,
+    # )
 
     # social_distance_estimator = social_distance.Estimator(executor)
     # social_distance_logger = social_distance.FileLogger('dev/output/distance.csv')
@@ -89,23 +94,25 @@ def main() -> None:
     )
 
     ceiling_writer = Writer(
-        'dev/output/sequential/ceiling.mp4',
+        'dev/output/ceiling.mp4',
         ceiling_reader.properties,
         output_format=Format.MP4,
     )
 
     window_left_writer = Writer(
-        'dev/output/sequential/window_left.mp4',
+        'dev/output/window_left.mp4',
         window_left_reader.properties,
         output_format=Format.MP4,
     )
 
     window_right_writer = Writer(
-        'dev/output/sequential/window_right.mp4',
+        'dev/output/window_right.mp4',
         window_right_reader.properties,
         output_format=Format.MP4,
     )
 
+    print('Starting sequential processing')
+        
     while True:
         ceiling_frames = ceiling_reader.read_batch()
         if ceiling_frames is None:
@@ -119,36 +126,36 @@ def main() -> None:
         if window_right_frames is None:
             break
 
-        n_frames = len(ceiling_frames)
+        # n_frames = len(ceiling_frames)
 
         ceiling_poses = pose_estimator.predict_batch(ceiling_frames)
         window_left_poses = pose_estimator.predict_batch(window_left_frames)
         window_right_poses = pose_estimator.predict_batch(window_right_frames)
 
-        ceiling_depth = depth_estimator.predict(ceiling_frames[0])
-        ceiling_depths = [ceiling_depth for _ in range(n_frames)]
+        # ceiling_depth = depth_estimator.predict(ceiling_frames[0])
+        # ceiling_depths = [ceiling_depth for _ in range(n_frames)]
 
-        window_left_to_ceiling = (
-            transformation_estimator.predict_batch(
-                ceiling_poses,
-                window_left_poses,
-                ceiling_depths,
-                [None for _ in range(n_frames)],  # type: ignore  # safe to pass
-            )
-            if ceiling_poses is not None and window_left_poses is not None
-            else None
-        )
+        # window_left_to_ceiling = (
+        #     transformation_estimator.predict_batch(
+        #         ceiling_poses,
+        #         window_left_poses,
+        #         ceiling_depths,
+        #         [None for _ in range(n_frames)],  # type: ignore  # safe to pass
+        #     )
+        #     if ceiling_poses is not None and window_left_poses is not None
+        #     else None
+        # )
 
-        window_right_to_ceiling = (
-            transformation_estimator.predict_batch(
-                ceiling_poses,
-                window_right_poses,
-                ceiling_depths,
-                [None for _ in range(n_frames)],  # type: ignore  # safe to pass
-            )
-            if ceiling_poses is not None and window_right_poses is not None
-            else None
-        )
+        # window_right_to_ceiling = (
+        #     transformation_estimator.predict_batch(
+        #         ceiling_poses,
+        #         window_right_poses,
+        #         ceiling_depths,
+        #         [None for _ in range(n_frames)],  # type: ignore  # safe to pass
+        #     )
+        #     if ceiling_poses is not None and window_right_poses is not None
+        #     else None
+        # )
 
         if ceiling_poses is None:
             Logger.error('ceiling_poses == None')
@@ -177,33 +184,40 @@ def main() -> None:
         if window_right_faces is None:
             Logger.error('window_right_faces == None')
 
-        window_left_gazes = (
-            window_left_gaze_estimator.predict_batch(
-                window_left_frames, window_left_faces
-            )
-            if window_left_faces is not None
-            else None
-        )
+        # window_left_gazes = (
+        #     # window_left_gaze_estimator.predict_batch(
+        #     #     window_left_frames, window_left_faces
+        #     # )
+        #     None
+        #     if window_left_faces is not None
+        #     else None
+        # )
 
-        window_right_gazes = (
-            window_right_gaze_estimator.predict_batch(
-                window_right_frames, window_right_faces
-            )
-            if window_right_faces is not None
-            else None
-        )
+        # window_right_gazes = (
+        #     # window_right_gaze_estimator.predict_batch(
+        #     #     window_right_frames, window_right_faces
+        #     # )
+        #     None
+        #     if window_right_faces is not None
+        #     else None
+        # )
 
         ceiling_gazes = (
-            ceiling_gaze_estimator.predict_batch(
-                ceiling_poses,
-                window_left_gazes,
-                window_right_gazes,
-                window_left_to_ceiling,
-                window_right_to_ceiling,
-            )
+            # ceiling_gaze_estimator.predict_batch(
+            #     ceiling_poses,
+            #     window_left_gazes,
+            #     window_right_gazes,
+            #     window_left_to_ceiling,
+            #     window_right_to_ceiling,
+            # )
+            None
             if ceiling_poses is not None
             else None
         )
+
+        window_left_emotions = emotions_estimator_left.predict_batch(window_left_frames, window_left_faces)
+        window_right_emotions = emotions_estimator_right.predict_batch(window_right_frames, window_right_faces)
+
 
         ceiling_annotated_frames = visualizer.annotate_batch(
             ceiling_frames,

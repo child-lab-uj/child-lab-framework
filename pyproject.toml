@@ -26,6 +26,7 @@ ml-dtypes = "0.4.0"                                                   # installi
 tensorflow = "^2.17.0"
 mini-face = ">=0.1.0"
 depth-pro = { git = "https://github.com/child-lab-uj/depth-pro.git" }
+deepface = "^0.0.93"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"
