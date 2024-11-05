@@ -7,12 +7,12 @@ import numpy as np
 
 from ...core.sequence import imputed_with_reference_inplace
 from ...core.stream import InvalidArgumentException
+from ...core.transformation import ProjectiveTransformation
 from ...core.video import Properties
 from ...logging import Logger
 from ...typing.array import BoolArray1, FloatArray2
 from ...typing.stream import Fiber
 from .. import face, pose
-from ..camera.transformation import Result as Transformation
 from . import ceiling_baseline, gaze
 
 type Input = tuple[
@@ -21,8 +21,8 @@ type Input = tuple[
     list[pose.Result | None] | None,
     list[face.Result | None] | None,
     list[face.Result | None] | None,
-    list[Transformation | None] | None,
-    list[Transformation | None] | None,
+    list[ProjectiveTransformation | None] | None,
+    list[ProjectiveTransformation | None] | None,
 ]
 
 
@@ -61,8 +61,8 @@ class Estimator:
         ceiling_pose: pose.Result,
         window_left_gaze: gaze.Result | None,
         window_right_gaze: gaze.Result | None,
-        window_left_to_ceiling: Transformation | None,
-        window_right_to_ceiling: Transformation | None,
+        window_left_to_ceiling: ProjectiveTransformation | None,
+        window_right_to_ceiling: ProjectiveTransformation | None,
     ) -> Result:
         centres, directions = ceiling_baseline.estimate(
             ceiling_pose,
@@ -138,8 +138,8 @@ class Estimator:
         ceiling_poses: list[pose.Result],
         window_left_gazes: list[gaze.Result] | None,
         window_right_gazes: list[gaze.Result] | None,
-        window_left_to_ceiling: list[Transformation] | None,
-        window_right_to_ceiling: list[Transformation] | None,
+        window_left_to_ceiling: list[ProjectiveTransformation] | None,
+        window_right_to_ceiling: list[ProjectiveTransformation] | None,
     ) -> list[Result] | None:
         return imputed_with_reference_inplace(
             list(
@@ -161,8 +161,8 @@ class Estimator:
         ceiling_pose: pose.Result | None,
         window_left_gaze: gaze.Result | None,
         window_right_gaze: gaze.Result | None,
-        window_left_to_ceiling: Transformation | None,
-        window_right_to_ceiling: Transformation | None,
+        window_left_to_ceiling: ProjectiveTransformation | None,
+        window_right_to_ceiling: ProjectiveTransformation | None,
     ) -> Result | None:
         if ceiling_pose is None:
             return None

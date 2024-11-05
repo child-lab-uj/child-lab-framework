@@ -27,6 +27,8 @@ ml-dtypes = "0.4.0" # installing higher version fails because it requires NumPy 
 tensorflow = "^2.17.0"
 mini-face = ">=0.1.0"
 depth-pro = { git = "https://github.com/child-lab-uj/depth-pro.git" }
+click = "^8.1.7"
+more-itertools = "^10.5.0"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"

@@ -2,12 +2,14 @@ import asyncio
 from concurrent.futures.thread import ThreadPoolExecutor
 from itertools import starmap
 
+import cv2
+
 from .....core.sequence import imputed_with_reference_inplace
+from .....core.transformation import ProjectiveTransformation
 from .....core.video import Properties
 from .....typing.array import FloatArray1, FloatArray2
 from .....typing.stream import Fiber
 from .... import pose
-from ..transformation import Result
 from . import projection
 
 type Input = tuple[
@@ -52,7 +54,7 @@ class Estimator:
         to_pose: pose.Result,
         from_depth: FloatArray2,
         to_depth: FloatArray2,
-    ) -> Result | None:
+    ) -> ProjectiveTransformation | None:
         match projection.estimate(
             from_pose,
             to_pose,
@@ -63,11 +65,10 @@ class Estimator:
             self.keypoint_threshold,
         ):
             case rotation, translation:
-                return Result(
-                    rotation,
+                return ProjectiveTransformation(
+                    cv2.Rodrigues(rotation)[0],  # type: ignore
                     translation,
-                    self.to_view_intrinsics,
-                    self.to_view_distortion,
+                    self.to_view.calibration,
                 )
 
             case None:
@@ -79,7 +80,7 @@ class Estimator:
         to_poses: list[pose.Result],
         from_depths: list[FloatArray2],
         to_depths: list[FloatArray2],
-    ) -> list[Result] | None:
+    ) -> list[ProjectiveTransformation] | None:
         return imputed_with_reference_inplace(
             list(
                 starmap(
@@ -100,17 +101,19 @@ class Estimator:
         to_pose: pose.Result | None,
         from_depth: FloatArray2,
         to_depth: FloatArray2,
-    ) -> Result | None:
+    ) -> ProjectiveTransformation | None:
         if from_pose is None or to_pose is None:
             return None
 
         return self.predict(from_pose, to_pose, from_depth, to_depth)
 
-    async def stream(self) -> Fiber[Input | None, list[Result | None] | None]:
+    async def stream(
+        self,
+    ) -> Fiber[Input | None, list[ProjectiveTransformation | None] | None]:
         loop = asyncio.get_running_loop()
         executor = self.executor
 
-        results: list[Result | None] | None = None
+        results: list[ProjectiveTransformation | None] | None = None
 
         while True:
             match (yield results):

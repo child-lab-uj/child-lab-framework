@@ -1,9 +1,10 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import torch
 
-from ..core.video import Format, Perspective, Reader, Writer
+from ..core.video import Format, Input, Reader, Writer
 from ..logging import Logger
 from ..task import depth, face, gaze, pose
 from ..task.camera import transformation
@@ -12,34 +13,40 @@ from ..task.visualization import Visualizer
 BATCH_SIZE = 32
 
 
-def main() -> None:
+def main(
+    inputs: tuple[Input, Input, Input], device: torch.device, output_directory: Path
+) -> None:
     # ignore exceeded allocation limit o2n MPS - very important!
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
 
     executor = ThreadPoolExecutor(max_workers=8)
-    gpu = torch.device('mps')
+    device = torch.device('mps')
+
+    ceiling, window_left, window_right = inputs
 
     ceiling_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/ceiling.mp4',
-        perspective=Perspective.CEILING,
+        ceiling,
         batch_size=BATCH_SIZE,
     )
+    ceiling_properties = ceiling_reader.properties
 
     window_left_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/window_left.mp4',
-        perspective=Perspective.WINDOW_LEFT,
+        window_left,
         batch_size=BATCH_SIZE,
-        like=ceiling_reader.properties,
+        height=ceiling_properties.height,
+        width=ceiling_properties.width,
+        fps=ceiling_properties.fps,
     )
 
     window_right_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/window_right.mp4',
-        perspective=Perspective.WINDOW_RIGHT,
+        window_right,
         batch_size=BATCH_SIZE,
-        like=ceiling_reader.properties,
+        height=ceiling_properties.height,
+        width=ceiling_properties.width,
+        fps=ceiling_properties.fps,
     )
 
-    depth_estimator = depth.Estimator(executor, gpu, input=ceiling_reader.properties)
+    depth_estimator = depth.Estimator(executor, device, input=ceiling_reader.properties)
 
     transformation_estimator = transformation.heuristic.Estimator(
         executor,
@@ -50,7 +57,7 @@ def main() -> None:
 
     pose_estimator = pose.Estimator(
         executor,
-        gpu,
+        device,
         input=ceiling_reader.properties,
         max_detections=2,
         threshold=0.5,
@@ -89,19 +96,19 @@ def main() -> None:
     )
 
     ceiling_writer = Writer(
-        'dev/output/sequential/ceiling.mp4',
+        str(output_directory / (ceiling.name + '.mp4')),
         ceiling_reader.properties,
         output_format=Format.MP4,
     )
 
     window_left_writer = Writer(
-        'dev/output/sequential/window_left.mp4',
+        str(output_directory / (window_left.name + '.mp4')),
         window_left_reader.properties,
         output_format=Format.MP4,
     )
 
     window_right_writer = Writer(
-        'dev/output/sequential/window_right.mp4',
+        str(output_directory / (window_right.name + '.mp4')),
         window_right_reader.properties,
         output_format=Format.MP4,
     )

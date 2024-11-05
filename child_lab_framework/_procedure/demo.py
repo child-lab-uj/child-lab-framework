@@ -4,38 +4,42 @@ from concurrent.futures import ThreadPoolExecutor
 import torch
 
 from ..core.flow import Machinery
-from ..core.video import Format, Perspective, Reader, Writer
+from ..core.video import Format, Input, Reader, Writer
 from ..task import face, gaze, pose
 from ..task.visualization import Visualizer
 
 BATCH_SIZE = 32
 
 
-async def main() -> None:
+async def main(inputs: tuple[Input, Input, Input], device: torch.device) -> None:
     # ignore exceeded allocation limit on MPS - very important!
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
 
     executor = ThreadPoolExecutor(max_workers=8)
-    gpu = torch.device('mps')
+    device = torch.device('mps')
+
+    ceiling, window_left, window_right = inputs
 
     ceiling_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/ceiling.mp4',
-        perspective=Perspective.CEILING,
+        ceiling,
         batch_size=BATCH_SIZE,
     )
+    ceiling_properties = ceiling_reader.properties
 
     window_left_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/window_left.mp4',
-        perspective=Perspective.WINDOW_LEFT,
+        window_left,
         batch_size=BATCH_SIZE,
-        like=ceiling_reader.properties,
+        height=ceiling_properties.height,
+        width=ceiling_properties.width,
+        fps=ceiling_properties.fps,
     )
 
     window_right_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/window_right.mp4',
-        perspective=Perspective.WINDOW_RIGHT,
+        window_right,
         batch_size=BATCH_SIZE,
-        like=ceiling_reader.properties,
+        height=ceiling_properties.height,
+        width=ceiling_properties.width,
+        fps=ceiling_properties.fps,
     )
 
     # ceiling_depth_estimator = depth.Estimator(
@@ -52,7 +56,7 @@ async def main() -> None:
 
     ceiling_pose_estimator = pose.Estimator(
         executor,
-        gpu,
+        device,
         input=ceiling_reader.properties,
         max_detections=2,
         threshold=0.5,
@@ -60,7 +64,7 @@ async def main() -> None:
 
     window_left_pose_estimator = pose.Estimator(
         executor,
-        gpu,
+        device,
         input=window_left_reader.properties,
         max_detections=2,
         threshold=0.5,
@@ -68,7 +72,7 @@ async def main() -> None:
 
     window_right_pose_estimator = pose.Estimator(
         executor,
-        gpu,
+        device,
         input=window_right_reader.properties,
         max_detections=2,
         threshold=0.5,

@@ -2,7 +2,7 @@ from enum import IntEnum
 
 import numpy as np
 
-from ..typing.array import FloatArray1, FloatArray2, FloatArray3, FloatArray4
+from ..typing.array import FloatArray1, FloatArray2, FloatArray3
 
 
 class Axis(IntEnum):
@@ -45,50 +45,45 @@ def orthogonal(vecs: FloatArray2) -> FloatArray2:
 
 
 def kabsch(
-    points_input_frame: FloatArray4, points_output_frame: FloatArray4
+    from_points: FloatArray2,
+    to_points: FloatArray2,
 ) -> tuple[FloatArray2, FloatArray1]:
-    assert points_input_frame.shape == points_output_frame.shape
-
-    num_rows, num_cols = points_input_frame.shape
-    if num_rows != 3:
-        raise Exception(
-            f'matrix points_input_frame is not 3xN, it is {num_rows}x{num_cols}'
+    if from_points.shape != to_points.shape:
+        raise ValueError(
+            f'Expected inputs and outputs of equal shape, got input: {from_points.shape}, output: {to_points.shape}'
         )
 
-    num_rows, num_cols = points_output_frame.shape
-    if num_rows != 3:
-        raise Exception(
-            f'matrix points_output_frame is not 3xN, it is {num_rows}x{num_cols}'
+    n_rows, n_columns = from_points.shape
+    if n_columns != 3:
+        raise ValueError(
+            f'Expected points_input_frame to have shape n x 3, got {n_rows} x {n_columns}'
         )
 
-    # find mean column wise
-    centroid_A = np.mean(points_input_frame, axis=1)
-    centroid_B = np.mean(points_output_frame, axis=1)
+    n_rows, n_columns = to_points.shape
+    if n_columns != 3:
+        raise ValueError(
+            f'Expected points_output_frame to have shape n x 3, got {n_rows} x {n_columns}'
+        )
 
-    # ensure centroids are 3x1
-    centroid_A = centroid_A.reshape(-1, 1)
-    centroid_B = centroid_B.reshape(-1, 1)
+    from_center = np.mean(from_points, axis=0)
+    to_center = np.mean(to_points, axis=0)
 
-    # subtract mean
-    Am = points_input_frame - centroid_A
-    Bm = points_output_frame - centroid_B
+    from_points_centered = from_points - from_center
+    to_points_centered = to_points - to_center
 
-    H = Am @ np.transpose(Bm)
+    cross_covariance = from_points_centered.T @ to_points_centered
 
-    # sanity check
-    # if linalg.matrix_rank(H) < 3:
-    #    raise ValueError("rank of H = {}, expecting 3".format(linalg.matrix_rank(H)))
+    decomposition = np.linalg.svd(cross_covariance)
+    ut: FloatArray2 = decomposition.U.T
+    v: FloatArray2 = decomposition.Vh.T
 
-    # find rotation
-    U, S, Vt = np.linalg.svd(H)
-    R = Vt.T @ U.T
+    rotation: FloatArray2 = v @ ut
 
     # special reflection case
-    if np.linalg.det(R) < 0:
-        # print('det(R) < 0, reflection detected!, correcting for it ...')
-        Vt[2, :] *= -1
-        R = Vt.T @ U.T
+    if np.linalg.det(rotation) < 0.0:
+        v[:, -1] *= -1.0
+        rotation: FloatArray2 = v @ ut
 
-    t = -R @ centroid_A + centroid_B
+    translation: FloatArray2 = -rotation @ from_center + to_center
 
-    return R, t.squeeze()
+    return rotation, translation.squeeze()
