@@ -21,7 +21,6 @@ numba = "^0.60.0"
 networkx = "^3.3"
 scipy = "^1.14.1"
 pandas = "^2.2.2"
-pytransform3d = "^3.7.0"
 mtcnn = "^0.1.1"
 ml-dtypes = "0.4.0" # installing higher version fails because it requires NumPy >= 2.1 (see issue #7)
 tensorflow = "^2.17.0"
