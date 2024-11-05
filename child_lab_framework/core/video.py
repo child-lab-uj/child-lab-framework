@@ -8,7 +8,6 @@ from typing import Self
 
 import cv2
 import numpy as np
-import yaml
 
 from ..core import serialization
 from ..typing.array import FloatArray1, FloatArray2, FloatArray3
@@ -66,7 +65,6 @@ class Calibration:
         return m
 
     def depth_to_3d(self, depth: FloatArray2) -> FloatArray3:
-        # TODO: remove distortion using opencv and distortion array, check if the shape is okay
         u = np.arange(depth.shape[1])
         v = np.arange(depth.shape[0])
         u, v = np.meshgrid(u, v)
@@ -111,36 +109,6 @@ class Calibration:
                     'and distortion: list[float] (shape: 5), '
                     f'got {other}',
                 )
-
-    def save(self, path: Path) -> None:
-        data = {
-            'optical_center': list(self.optical_center),
-            'focal_length': list(self.focal_length),
-            'distortion': self.distortion.tolist(),
-        }
-
-        with open(path, 'w+') as file:
-            yaml.dump(data, file)
-
-    @classmethod
-    def load(cls, path: Path) -> Self | None:
-        with open(path, 'r') as file:
-            data = yaml.safe_load(file)
-
-        match data:
-            case {
-                'optical_center': [float(cx), float(cy)],
-                'focal_length': [float(fx), float(fy)],
-                'distortion': list(distortion_coefficients),
-            }:
-                optical_center = cx, cy
-                focal_length = fx, fy
-                distortion = np.array(distortion_coefficients, dtype=np.float32)
-
-                return cls(optical_center, focal_length, distortion)
-
-            case _:
-                return None
 
     def __repr__(self) -> str:
         cx, cy = self.optical_center

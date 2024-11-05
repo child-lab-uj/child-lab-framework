@@ -108,8 +108,8 @@ class Estimator:
                 * correction_weight
             )
 
-            directions[1, ...] *= baseline_weight
-            directions[1, ...] += directions_projected[1, ...]
+            directions[-1, ...] *= baseline_weight
+            directions[-1, ...] += directions_projected[-1, ...]
 
         if window_right_gaze is not None and window_right_to_ceiling is not None:
             directions_simplified = np.squeeze(

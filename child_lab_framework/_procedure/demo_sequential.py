@@ -16,11 +16,11 @@ BATCH_SIZE = 32
 def main(
     inputs: tuple[Input, Input, Input], device: torch.device, output_directory: Path
 ) -> None:
-    # ignore exceeded allocation limit o2n MPS - very important!
+    # ignore exceeded allocation limit on MPS and CUDA - very important!
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
+    os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
     executor = ThreadPoolExecutor(max_workers=8)
-    device = torch.device('mps')
 
     ceiling, window_left, window_right = inputs
 
