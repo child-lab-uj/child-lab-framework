@@ -3,11 +3,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import torch
 
-from child_lab_framework.task import emotions
-
 from .core.video import Format, Perspective, Reader, Writer
 from .logging import Logger
-from .task import depth, face, gaze, pose
+from .task import depth, face, gaze, pose, emotions
 from .task.camera import transformation
 from .task.visualization import Visualizer
 
@@ -22,20 +20,20 @@ def main() -> None:
     gpu = torch.device('mps')
 
     ceiling_reader = Reader(
-        '/Users/wojciechbarczynski/child-lab-framework/dev/data/aruco_cubic_ultra_short/ceiling.mp4',
+        'dev/data/aruco_cubic_ultra_short/ceiling.mp4',
         perspective=Perspective.CEILING,
         batch_size=BATCH_SIZE,
     )
 
     window_left_reader = Reader(
-        '/Users/wojciechbarczynski/child-lab-framework/dev/data/aruco_cubic_ultra_short/window_left.mp4',
+        'dev/data/aruco_cubic_ultra_short/window_left.mp4',
         perspective=Perspective.WINDOW_LEFT,
         batch_size=BATCH_SIZE,
         like=ceiling_reader.properties,
     )
 
     window_right_reader = Reader(
-        '/Users/wojciechbarczynski/child-lab-framework/dev/data/aruco_cubic_ultra_short/window_right.mp4',
+        'dev/data/aruco_cubic_ultra_short/window_right.mp4',
         perspective=Perspective.WINDOW_RIGHT,
         batch_size=BATCH_SIZE,
         like=ceiling_reader.properties,
@@ -94,19 +92,19 @@ def main() -> None:
     )
 
     ceiling_writer = Writer(
-        'dev/output/ceiling.mp4',
+        'dev/output/sequential/ceiling.mp4',
         ceiling_reader.properties,
         output_format=Format.MP4,
     )
 
     window_left_writer = Writer(
-        'dev/output/window_left.mp4',
+        'dev/output/sequential/window_left.mp4',
         window_left_reader.properties,
         output_format=Format.MP4,
     )
 
     window_right_writer = Writer(
-        'dev/output/window_right.mp4',
+        'dev/output/sequential/window_right.mp4',
         window_right_reader.properties,
         output_format=Format.MP4,
     )
