@@ -1,4 +1,5 @@
 import asyncio
+from typing import Dict, List
 from deepface import DeepFace
 from concurrent.futures import ThreadPoolExecutor
 from itertools import repeat, starmap
@@ -85,7 +86,7 @@ class Estimator:
                 case _:
                     results = None
 
-def score_emotions(emotions):
+def score_emotions(emotions: List[Dict[str, float]]) -> float:
     # Most of the time, "angry" and "fear" are similar to "neutral" in the reality
     scores = {
         'angry': -0.05,
