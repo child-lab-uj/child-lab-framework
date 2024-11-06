@@ -123,11 +123,19 @@ class Visualizer:
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
 
         return frame
-    
+
     def __draw_emotions_text(self, frame: Frame, result: emotion.Result) -> Frame:
         color = self.FACE_BOUNDING_BOX_COLOR
-        for (value, box) in zip(result.emotions, result.boxes):
-            cv2.putText(frame, str(value), [box[0], box[3]],  cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+        for value, box in zip(result.emotions, result.boxes):
+            cv2.putText(
+                frame,
+                str(value),
+                [box[0], box[3]],
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.9,
+                color,
+                2,
+            )
         return frame
 
     def __annotate_safe(
@@ -136,7 +144,7 @@ class Visualizer:
         poses: pose.Result | None,
         faces: face.Result | None,
         gazes: ceiling_projection.Result | None,
-        emotions: emotion.Result | None
+        emotions: emotion.Result | None,
     ) -> Frame:
         out = frame.copy()
         out.flags.writeable = True
@@ -150,7 +158,7 @@ class Visualizer:
 
         if gazes is not None:
             out = self.__draw_gaze_estimation(out, gazes)
-        
+
         if emotions is not None:
             out = self.__draw_emotions_text(out, emotions)
 
@@ -162,7 +170,7 @@ class Visualizer:
         poses: list[pose.Result] | None,
         faces: list[face.Result] | None,
         gazes: list[ceiling_projection.Result] | None,
-        emotions: list[emotion.Result] | None
+        emotions: list[emotion.Result] | None,
     ) -> list[Frame]:
         return list(
             starmap(
@@ -172,7 +180,7 @@ class Visualizer:
                     poses or repeat(None),
                     faces or repeat(None),
                     gazes or repeat(None),
-                    emotions or repeat(None)
+                    emotions or repeat(None),
                 ),
             )
         )

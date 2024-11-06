@@ -15,6 +15,7 @@ type Input = tuple[
     list[face.Result | None] | None,
 ]
 
+
 class Result:
     emotions: list[float]
     boxes: list[FloatArray2]
@@ -22,6 +23,7 @@ class Result:
     def __init__(self, emotions: list[float], boxes: list[FloatArray2]) -> None:
         self.emotions = emotions
         self.boxes = boxes
+
 
 class Estimator:
     executor: ThreadPoolExecutor
@@ -40,13 +42,15 @@ class Estimator:
             y_min = max(y_min - 50, 0)
             y_max = min(y_max + 50, frame_height)
             cropped_frame = frame[y_min:y_max, x_min:x_max]
-            analysis = DeepFace.analyze(cropped_frame, actions=['emotion'], enforce_detection=False)
+            analysis = DeepFace.analyze(
+                cropped_frame, actions=['emotion'], enforce_detection=False
+            )
             emotion = score_emotions(analysis[0])
             face_emotions.append(emotion)
             boxes.append(face_box)
 
         return Result(face_emotions, boxes)
-    
+
     def predict_batch(
         self,
         frames: list[Frame],
@@ -75,16 +79,14 @@ class Estimator:
                         lambda: list(
                             starmap(
                                 self.__predict,
-                                zip(
-                                    frames,
-                                    faces or repeat(None)
-                                ),
+                                zip(frames, faces or repeat(None)),
                             )
                         ),
                     )
 
                 case _:
                     results = None
+
 
 def score_emotions(emotions: List[Dict[str, float]]) -> float:
     # Most of the time, "angry" and "fear" are similar to "neutral" in the reality

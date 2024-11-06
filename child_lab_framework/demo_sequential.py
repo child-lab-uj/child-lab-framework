@@ -110,7 +110,7 @@ def main() -> None:
     )
 
     print('Starting sequential processing')
-        
+
     while True:
         ceiling_frames = ceiling_reader.read_batch()
         if ceiling_frames is None:
@@ -210,8 +210,12 @@ def main() -> None:
             else None
         )
 
-        window_left_emotions = emotions_estimator_left.predict_batch(window_left_frames, window_left_faces)
-        window_right_emotions = emotions_estimator_right.predict_batch(window_right_frames, window_right_faces)
+        window_left_emotions = emotions_estimator_left.predict_batch(
+            window_left_frames, window_left_faces
+        )
+        window_right_emotions = emotions_estimator_right.predict_batch(
+            window_right_frames, window_right_faces
+        )
 
         ceiling_annotated_frames = visualizer.annotate_batch(
             ceiling_frames,
@@ -226,7 +230,7 @@ def main() -> None:
             window_left_poses,
             window_left_faces,
             None,
-            window_left_emotions
+            window_left_emotions,
         )
 
         window_right_annotated_frames = visualizer.annotate_batch(
@@ -234,7 +238,7 @@ def main() -> None:
             window_right_poses,
             window_right_faces,
             None,
-            window_right_emotions
+            window_right_emotions,
         )
 
         ceiling_writer.write_batch(ceiling_annotated_frames)
