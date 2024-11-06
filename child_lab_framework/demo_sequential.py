@@ -5,7 +5,7 @@ import torch
 
 from .core.video import Format, Perspective, Reader, Writer
 from .logging import Logger
-from .task import depth, face, gaze, pose
+from .task import depth, face, gaze, pose, emotion
 from .task.camera import transformation
 from .task.visualization import Visualizer
 
@@ -62,6 +62,9 @@ def main() -> None:
         threshold=0.1,
     )
 
+    emotions_estimator_left = emotion.Estimator(executor)
+    emotions_estimator_right = emotion.Estimator(executor)
+
     window_left_gaze_estimator = gaze.Estimator(
         executor,
         input=window_left_reader.properties,
@@ -105,6 +108,8 @@ def main() -> None:
         window_right_reader.properties,
         output_format=Format.MP4,
     )
+
+    print('Starting sequential processing')
 
     while True:
         ceiling_frames = ceiling_reader.read_batch()
@@ -205,11 +210,19 @@ def main() -> None:
             else None
         )
 
+        window_left_emotions = emotions_estimator_left.predict_batch(
+            window_left_frames, window_left_faces
+        )
+        window_right_emotions = emotions_estimator_right.predict_batch(
+            window_right_frames, window_right_faces
+        )
+
         ceiling_annotated_frames = visualizer.annotate_batch(
             ceiling_frames,
             ceiling_poses,
             None,
             ceiling_gazes,
+            None,
         )
 
         window_left_annotated_frames = visualizer.annotate_batch(
@@ -217,6 +230,7 @@ def main() -> None:
             window_left_poses,
             window_left_faces,
             None,
+            window_left_emotions,
         )
 
         window_right_annotated_frames = visualizer.annotate_batch(
@@ -224,6 +238,7 @@ def main() -> None:
             window_right_poses,
             window_right_faces,
             None,
+            window_right_emotions,
         )
 
         ceiling_writer.write_batch(ceiling_annotated_frames)
