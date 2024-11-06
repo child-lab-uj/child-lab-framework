@@ -5,7 +5,7 @@ import torch
 
 from .core.video import Format, Perspective, Reader, Writer
 from .logging import Logger
-from .task import depth, face, gaze, pose, emotions
+from .task import depth, face, gaze, pose, emotion
 from .task.camera import transformation
 from .task.visualization import Visualizer
 
@@ -62,8 +62,8 @@ def main() -> None:
         threshold=0.1,
     )
 
-    emotions_estimator_left = emotions.Estimator(executor)
-    emotions_estimator_right = emotions.Estimator(executor)
+    emotions_estimator_left = emotion.Estimator(executor)
+    emotions_estimator_right = emotion.Estimator(executor)
 
     window_left_gaze_estimator = gaze.Estimator(
         executor,

@@ -9,7 +9,7 @@ import numpy as np
 from ...core.video import Frame, Properties
 from ...typing.array import FloatArray1, FloatArray2, IntArray1
 from ...typing.stream import Fiber
-from .. import face, pose, emotions
+from .. import face, pose, emotion
 from ..gaze import ceiling_projection
 from ..pose.keypoint import YOLO_SKELETON
 
@@ -124,7 +124,7 @@ class Visualizer:
 
         return frame
     
-    def __draw_emotions_text(self, frame: Frame, result: emotions.Result) -> Frame:
+    def __draw_emotions_text(self, frame: Frame, result: emotion.Result) -> Frame:
         color = self.FACE_BOUNDING_BOX_COLOR
         for (value, box) in zip(result.emotions, result.boxes):
             cv2.putText(frame, str(value), [box[0], box[3]],  cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
@@ -136,7 +136,7 @@ class Visualizer:
         poses: pose.Result | None,
         faces: face.Result | None,
         gazes: ceiling_projection.Result | None,
-        emotions: emotions.Result | None
+        emotions: emotion.Result | None
     ) -> Frame:
         out = frame.copy()
         out.flags.writeable = True
@@ -162,7 +162,7 @@ class Visualizer:
         poses: list[pose.Result] | None,
         faces: list[face.Result] | None,
         gazes: list[ceiling_projection.Result] | None,
-        emotions: list[emotions.Result] | None
+        emotions: list[emotion.Result] | None
     ) -> list[Frame]:
         return list(
             starmap(
