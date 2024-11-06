@@ -7,6 +7,7 @@ from child_lab_framework.core.sequence import imputed_with_reference_inplace
 from child_lab_framework.task import face
 from ...core.video import Frame
 from ...typing.stream import Fiber
+from ...typing.array import FloatArray2
 
 type Input = tuple[
     list[Frame | None] | None,
@@ -14,12 +15,12 @@ type Input = tuple[
 ]
 
 class Result:
-    n_detections: int
     emotions: list[float]
+    boxes: list[FloatArray2]
 
-    def __init__(self, n_detections: int, emotions: list[float]) -> None:
-        self.n_detections = n_detections
+    def __init__(self, emotions: list[float], boxes: list[FloatArray2]) -> None:
         self.emotions = emotions
+        self.boxes = boxes
 
 class Estimator:
     executor: ThreadPoolExecutor
@@ -28,15 +29,22 @@ class Estimator:
         self.executor = executor
 
     def predict(self, frame: Frame, faces: face.Result | None) -> Result:
-        n_detections = 0
         face_emotions = []
-        for face in faces.boxes:
-            analysis = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False)
+        boxes = []
+        frame_height, frame_width, _ = frame.shape
+        for face_box in faces.boxes:
+            x_min, y_min, x_max, y_max = face_box
+            x_min = max(x_min - 50, 0)
+            x_max = min(x_max + 50, frame_width)
+            y_min = max(y_min - 50, 0)
+            y_max = min(y_max + 50, frame_height)
+            cropped_frame = frame[y_min:y_max, x_min:x_max]
+            analysis = DeepFace.analyze(cropped_frame, actions=['emotion'], enforce_detection=False)
             emotion = score_emotions(analysis[0])
-            n_detections += 1
             face_emotions.append(emotion)
-        
-        return Result(n_detections, face_emotions)
+            boxes.append(face_box)
+
+        return Result(face_emotions, boxes)
     
     def predict_batch(
         self,
