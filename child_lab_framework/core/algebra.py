@@ -2,7 +2,8 @@ from enum import IntEnum
 
 import numpy as np
 
-from ..typing.array import FloatArray1, FloatArray2, FloatArray3
+from ..typing.array import FloatArray1, FloatArray2, FloatArray3, FloatArray6
+from .calibration import Calibration
 
 
 class Axis(IntEnum):
@@ -87,3 +88,22 @@ def kabsch(
     translation: FloatArray2 = -rotation @ from_center + to_center
 
     return rotation, translation.squeeze()
+
+
+def make_point_cloud(
+    rgb: FloatArray3,
+    depth: FloatArray2,
+    calibration: Calibration,
+) -> FloatArray6:
+    height, width, *_ = rgb.shape
+
+    fx, fy = calibration.focal_length
+    cx, cy = calibration.optical_center
+
+    xs, ys = np.meshgrid(np.arange(width), np.arange(height))
+
+    x = np.expand_dims((xs - cx) * depth / fx, axis=-1)
+    y = np.expand_dims((ys - cy) * depth / fy, axis=-1)
+    z = np.expand_dims(depth, axis=-1)
+
+    return np.concatenate((x, y, z, rgb), axis=-1)
