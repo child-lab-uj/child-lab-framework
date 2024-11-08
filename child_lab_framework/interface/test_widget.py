@@ -1,6 +1,8 @@
 import typing
 from typing import Callable
+
 from websockets.sync.client import connect
+
 from ..docker import run
 
 NAME = 'test-widget'

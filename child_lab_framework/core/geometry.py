@@ -1,6 +1,7 @@
-import torch
 import typing
 from collections.abc import Callable
+
+import torch
 
 
 def area(rect: torch.Tensor) -> torch.Tensor:
