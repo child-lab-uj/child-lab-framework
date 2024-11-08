@@ -1,3 +1,3 @@
-from .heuristic import Estimator, Result
+from .heuristic import Estimator
 
-__all__ = ['Estimator', 'Result']
+__all__ = ['Estimator']

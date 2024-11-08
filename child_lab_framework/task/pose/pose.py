@@ -206,7 +206,6 @@ class Estimator:
         keypoints_cpu[..., 1] *= height_rescale
 
         del boxes, keypoints
-        torch.mps.empty_cache()
 
         return Result(n_detections, boxes_cpu, keypoints_cpu, actors)
 

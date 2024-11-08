@@ -23,9 +23,11 @@ scipy = "^1.14.1"
 pandas = "^2.2.2"
 mtcnn = "^0.1.1"
 ml-dtypes = "0.4.0"                                                   # installing higher version fails because it requires NumPy >= 2.1 (see issue #7)
-tensorflow = "^2.17.0"
-mini-face = ">=0.1.0"
+tensorflow = "2.17.0"                                                 # higher version causes errors on server. TODO: remove this constraint as soon as MTCNN gets removed
+mini-face = "^0.1.3"
 depth-pro = { git = "https://github.com/child-lab-uj/depth-pro.git" }
+click = "^8.1.7"
+more-itertools = "^10.5.0"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"
@@ -38,13 +40,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
-exclude = [
-    ".venv",
-    "widget",                          #
-    "child_lab_framework/docker",      # too chaotic to lint ;v
-    "child_lab_framework/interface",   #
-    "child_lab_framework/experiments",
-]
+exclude = [".venv", "child_lab_framework/experiments"]
 line-length = 90
 
 [tool.ruff.format]

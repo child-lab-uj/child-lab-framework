@@ -1,45 +1,52 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import torch
 
-from .core.video import Format, Perspective, Reader, Writer
-from .logging import Logger
-from .task import depth, face, gaze, pose
-from .task.camera import transformation
-from .task.visualization import Visualizer
+from ..core.video import Format, Input, Reader, Writer
+from ..logging import Logger
+from ..task import depth, face, gaze, pose
+from ..task.camera import transformation
+from ..task.visualization import Visualizer
 
 BATCH_SIZE = 32
 
 
-def main() -> None:
-    # ignore exceeded allocation limit on MPS - very important!
+def main(
+    inputs: tuple[Input, Input, Input], device: torch.device, output_directory: Path
+) -> None:
+    # ignore exceeded allocation limit on MPS and CUDA - very important!
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
+    os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
     executor = ThreadPoolExecutor(max_workers=8)
-    gpu = torch.device('mps')
+
+    ceiling, window_left, window_right = inputs
 
     ceiling_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/ceiling.mp4',
-        perspective=Perspective.CEILING,
+        ceiling,
         batch_size=BATCH_SIZE,
     )
+    ceiling_properties = ceiling_reader.properties
 
     window_left_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/window_left.mp4',
-        perspective=Perspective.WINDOW_LEFT,
+        window_left,
         batch_size=BATCH_SIZE,
-        like=ceiling_reader.properties,
+        height=ceiling_properties.height,
+        width=ceiling_properties.width,
+        fps=ceiling_properties.fps,
     )
 
     window_right_reader = Reader(
-        'dev/data/aruco_cubic_ultra_short/window_right.mp4',
-        perspective=Perspective.WINDOW_RIGHT,
+        window_right,
         batch_size=BATCH_SIZE,
-        like=ceiling_reader.properties,
+        height=ceiling_properties.height,
+        width=ceiling_properties.width,
+        fps=ceiling_properties.fps,
     )
 
-    depth_estimator = depth.Estimator(executor, gpu, input=ceiling_reader.properties)
+    depth_estimator = depth.Estimator(executor, device, input=ceiling_reader.properties)
 
     transformation_estimator = transformation.heuristic.Estimator(
         executor,
@@ -50,7 +57,7 @@ def main() -> None:
 
     pose_estimator = pose.Estimator(
         executor,
-        gpu,
+        device,
         input=ceiling_reader.properties,
         max_detections=2,
         threshold=0.5,
@@ -89,22 +96,24 @@ def main() -> None:
     )
 
     ceiling_writer = Writer(
-        'dev/output/sequential/ceiling.mp4',
+        str(output_directory / (ceiling.name + '.mp4')),
         ceiling_reader.properties,
         output_format=Format.MP4,
     )
 
     window_left_writer = Writer(
-        'dev/output/sequential/window_left.mp4',
+        str(output_directory / (window_left.name + '.mp4')),
         window_left_reader.properties,
         output_format=Format.MP4,
     )
 
     window_right_writer = Writer(
-        'dev/output/sequential/window_right.mp4',
+        str(output_directory / (window_right.name + '.mp4')),
         window_right_reader.properties,
         output_format=Format.MP4,
     )
+
+    Logger.info('Components instantiated')
 
     while True:
         ceiling_frames = ceiling_reader.read_batch()
@@ -121,13 +130,27 @@ def main() -> None:
 
         n_frames = len(ceiling_frames)
 
+        Logger.info('Estimating poses...')
         ceiling_poses = pose_estimator.predict_batch(ceiling_frames)
         window_left_poses = pose_estimator.predict_batch(window_left_frames)
         window_right_poses = pose_estimator.predict_batch(window_right_frames)
+        Logger.info('Done!')
 
+        if ceiling_poses is None:
+            Logger.error('ceiling_poses == None')
+
+        if window_left_poses is None:
+            Logger.error('window_left_poses == None')
+
+        if window_right_poses is None:
+            Logger.error('window_right_poses == None')
+
+        Logger.info('Estimating depth...')
         ceiling_depth = depth_estimator.predict(ceiling_frames[0])
         ceiling_depths = [ceiling_depth for _ in range(n_frames)]
+        Logger.info('Done!')
 
+        Logger.info('Estimating transformations...')
         window_left_to_ceiling = (
             transformation_estimator.predict_batch(
                 ceiling_poses,
@@ -149,16 +172,9 @@ def main() -> None:
             if ceiling_poses is not None and window_right_poses is not None
             else None
         )
+        Logger.info('Done!')
 
-        if ceiling_poses is None:
-            Logger.error('ceiling_poses == None')
-
-        if window_left_poses is None:
-            Logger.error('window_left_poses == None')
-
-        if window_right_poses is None:
-            Logger.error('window_right_poses == None')
-
+        Logger.info('Detecting faces...')
         window_left_faces = (
             face_estimator.predict_batch(window_left_frames, window_left_poses)
             if window_left_poses is not None
@@ -170,6 +186,7 @@ def main() -> None:
             if window_right_poses is not None
             else None
         )
+        Logger.info('Done!')
 
         if window_left_faces is None:
             Logger.error('window_left_faces == None')
@@ -177,6 +194,7 @@ def main() -> None:
         if window_right_faces is None:
             Logger.error('window_right_faces == None')
 
+        Logger.info('Estimating gazes...')
         window_left_gazes = (
             window_left_gaze_estimator.predict_batch(
                 window_left_frames, window_left_faces
@@ -204,7 +222,9 @@ def main() -> None:
             if ceiling_poses is not None
             else None
         )
+        Logger.info('Done!')
 
+        Logger.info('Visualizing results...')
         ceiling_annotated_frames = visualizer.annotate_batch(
             ceiling_frames,
             ceiling_poses,
@@ -216,18 +236,21 @@ def main() -> None:
             window_left_frames,
             window_left_poses,
             window_left_faces,
-            None,
+            window_left_gazes,
         )
 
         window_right_annotated_frames = visualizer.annotate_batch(
             window_right_frames,
             window_right_poses,
             window_right_faces,
-            None,
+            window_right_gazes,
         )
+        Logger.info('Done!')
 
+        Logger.info('Saving results...')
         ceiling_writer.write_batch(ceiling_annotated_frames)
         window_left_writer.write_batch(window_left_annotated_frames)
         window_right_writer.write_batch(window_right_annotated_frames)
+        Logger.info('Done!')
 
         Logger.info('Step complete')

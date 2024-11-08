@@ -1,11 +1,11 @@
-from typing import Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from docker.models.containers import Container
 
 from ..docker.build import build
-from .client import get_default_client
 from ..logging import Logger
+from .client import get_default_client
 
 
 def kill_callback(container: 'Container', widget_name: str, address: str, port: int):

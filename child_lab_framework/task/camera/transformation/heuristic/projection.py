@@ -13,11 +13,18 @@ from .....typing.array import (
 
 
 def common_points_indicator(
-    points1: FloatArray2, points2: FloatArray2, confidence_threshold: float
+    points1: FloatArray2,
+    points2: FloatArray2,
+    confidence_threshold: float,
 ) -> IntArray1:
-    probabilities = np.minimum(points1.view()[:, -1], points2.view()[:, -1])
+    sufficient_confidence = (
+        np.minimum(points1.view()[:, -1], points2.view()[:, -1]) >= confidence_threshold
+    )
 
-    indicator = np.squeeze(np.where(probabilities >= confidence_threshold))
+    x_non_zero = (points1[:, 0] * points2[:, 0]) >= 0.0
+    y_non_zero = (points1[:, 1] * points2[:, 1]) >= 0.0
+
+    indicator = np.squeeze(np.where(sufficient_confidence & x_non_zero & y_non_zero))
 
     return typing.cast(IntArray1, indicator)
 
@@ -39,7 +46,7 @@ def estimate(
     to_keypoints = to_pose.depersonificated_keypoints
     common = common_points_indicator(from_keypoints, to_keypoints, confidence_threshold)
 
-    if common.sum() < 3:
+    if common.size < 3:
         return None
 
     from_points_2d: FloatArray2 = from_keypoints.view()[common][:, [0, 1]]
