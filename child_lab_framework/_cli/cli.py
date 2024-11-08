@@ -189,7 +189,7 @@ def process(
         for name, video, calibration in zip(video_names, video_full_paths, calibrations)
     ]
 
-    click.echo('Proceeding with video analysis...')
+    click.echo(f'Processing {"video" if len(videos) == 1 else "videos"}...')
 
     demo_sequential.main(inputs, device_handle, destination)  # type: ignore
 
