@@ -46,7 +46,7 @@ def estimate(
     to_keypoints = to_pose.depersonificated_keypoints
     common = common_points_indicator(from_keypoints, to_keypoints, confidence_threshold)
 
-    if common.size < 3:
+    if common.size < 6:
         return None
 
     from_points_2d: FloatArray2 = from_keypoints.view()[common][:, [0, 1]]
