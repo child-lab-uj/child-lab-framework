@@ -2,8 +2,9 @@ import cv2
 import numpy as np
 from tqdm import trange
 
+from ..core.calibration import Calibration
 from ..core.detection import chessboard
-from ..core.video import Calibration, Input, Reader
+from ..core.video import Input, Reader
 from ..typing.array import FloatArray2, FloatArray3
 
 

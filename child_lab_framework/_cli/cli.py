@@ -9,9 +9,10 @@ import torch
 from .._procedure import calibrate as calibration_procedure
 from .._procedure import demo_sequential
 from .._procedure import estimate_transformations as transformation_procedure
+from ..core.calibration import Calibration
 from ..core.detection import chessboard, marker
 from ..core.file import load, save
-from ..core.video import Calibration, Input
+from ..core.video import Input
 
 # NOTE: This CLI is made for development purposes. It may not be a part of the final library.
 

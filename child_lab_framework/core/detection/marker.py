@@ -9,7 +9,7 @@ import numpy as np
 from ...typing.array import FloatArray2, FloatArray3, IntArray1
 from ...typing.video import Frame
 from .. import serialization, transformation
-from ..video import Calibration
+from ..calibration import Calibration
 
 
 # Can't stand that awful OpenCV's constants ported directly from C++; enum is better

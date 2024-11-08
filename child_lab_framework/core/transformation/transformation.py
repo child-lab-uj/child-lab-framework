@@ -8,7 +8,7 @@ import numpy as np
 
 from ...typing.array import FloatArray1, FloatArray2
 from .. import serialization
-from ..video import Calibration
+from ..calibration import Calibration
 
 Shape = TypeVar('Shape', bound=tuple)
 
