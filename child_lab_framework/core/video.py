@@ -1,15 +1,16 @@
 import asyncio
 import math
 import typing
-from copy import copy
 from dataclasses import dataclass
 from enum import Enum
-from functools import lru_cache
+from pathlib import Path
+from typing import Self
 
 import cv2
 import numpy as np
 
-from ..typing.array import FloatArray1, FloatArray2
+from ..core import serialization
+from ..typing.array import FloatArray1, FloatArray2, FloatArray3
 from ..typing.stream import Fiber
 from ..typing.video import Frame
 
@@ -19,21 +20,14 @@ class Format(Enum):
     MP4 = 'mp4v'
 
 
-class Perspective(Enum):
-    CEILING = 'Ceiling'
-    WINDOW_RIGHT = 'Window Right'
-    WINDOW_LEFT = 'Window Left'
-    WALL_RIGHT = 'Wall Right'
-    WALL_LEFT = 'Wall Left'
-
-
-@dataclass(unsafe_hash=True, frozen=True)
+@dataclass(unsafe_hash=True, frozen=True, repr=False)
 class Calibration:
     optical_center: tuple[float, float]
     focal_length: tuple[float, float]
+    distortion: FloatArray1
 
-    @staticmethod
-    def heuristic(width: int, height: int) -> 'Calibration':
+    @classmethod
+    def heuristic(cls, height: int, width: int) -> Self:
         cx = width / 2.0
         cy = height / 2.0
 
@@ -42,95 +36,185 @@ class Calibration:
         fx = (fx + fy) / 2.0
         fy = fx
 
-        return Calibration((cx, cy), (fx, fy))
+        distortion = np.zeros(5, dtype=np.float32)
 
-    @lru_cache(1)
+        return cls((cx, cy), (fx, fy), distortion)
+
+    # @lru_cache(1)
+    def resized(self, width_scale: float, height_scale: float) -> 'Calibration':
+        cx, cy = self.optical_center
+        fx, fy = self.focal_length
+
+        return Calibration(
+            (cx * width_scale, cy * height_scale),
+            (fx * width_scale, fy * height_scale),
+            self.distortion,
+        )
+
+    # @lru_cache(1)
     def flat(self) -> tuple[float, float, float, float]:
         return (*self.focal_length, *self.optical_center)
 
-    @lru_cache(1)
+    @property
     def intrinsics(self) -> FloatArray2:
-        m = np.zeros((3, 4), dtype=np.float32)
+        m = np.zeros((3, 3), dtype=np.float32)
         m[0, 0], m[1, 1] = self.focal_length
         m[0:2, 2] = self.optical_center
         m[2, 2] = 1.0
 
         return m
 
-    @lru_cache(1)
-    def distortion(self) -> FloatArray1:
-        return np.zeros(4, dtype=np.float32)
+    def depth_to_3d(self, depth: FloatArray2) -> FloatArray3:
+        u = np.arange(depth.shape[1])
+        v = np.arange(depth.shape[0])
+        u, v = np.meshgrid(u, v)
+
+        x = (u - self.optical_center[0]) * depth / self.focal_length[0]
+        y = (v - self.optical_center[1]) * depth / self.focal_length[1]
+        z = depth
+
+        # Expand dimensions to make it 3D
+        x = np.expand_dims(x, axis=-1)
+        y = np.expand_dims(y, axis=-1)
+        z = np.expand_dims(z, axis=-1)
+
+        return np.concatenate((x, y, z), axis=-1)
+
+    def serialize(self) -> dict[str, serialization.Value]:
+        return {
+            'optical_center': list(self.optical_center),
+            'focal_length': list(self.focal_length),
+            'distortion': self.distortion.tolist(),
+        }
+
+    @classmethod
+    def deserialize(cls, data: dict[str, serialization.Value]) -> Self:
+        match data:
+            case {
+                'optical_center': [float(cx), float(cy)],
+                'focal_length': [float(fx), float(fy)],
+                'distortion': [float(d1), float(d2), float(d3), float(d4), float(d5)],
+                **_other,
+            }:
+                optical_center = cx, cy
+                focal_length = fx, fy
+                distortion = np.array([d1, d2, d3, d4, d5], dtype=np.float32)
+                return cls(optical_center, focal_length, distortion)
+
+            case other:
+                raise serialization.DeserializeError(
+                    'Expected dictionary with: '
+                    'optical_center: tuple[float, float], '
+                    'focal_length: tuple[float, float], '
+                    'and distortion: list[float] (shape: 5), '
+                    f'got {other}',
+                )
+
+    def __repr__(self) -> str:
+        cx, cy = self.optical_center
+        fx, fy = self.focal_length
+
+        return (
+            'Optical center:\n'
+            f'  x: {cx:.2f},\n'
+            f'  y: {cy:.2f},\n'
+            'Focal length:\n'
+            f'  x: {fx:.2f},\n'
+            f'  y: {fy:.2f}'
+        )
 
 
+@dataclass(frozen=True, repr=False)
 class Properties:
-    width: int
+    length: int
     height: int
+    width: int
     fps: int
-    perspective: Perspective
     calibration: Calibration
-
-    def __init__(
-        self, width: int, height: int, fps: int, perspective: Perspective
-    ) -> None:
-        self.width = width
-        self.height = height
-        self.fps = fps
-        self.perspective = perspective
-        self.calibration = Calibration.heuristic(width, height)
 
     def __repr__(self) -> str:
         width = self.width
         height = self.height
         fps = self.fps
-        perspective = self.perspective
         calibration = self.calibration
 
-        return f'Properties:\n{width = },\n{height = },\n{fps = },\n{perspective = },\n{calibration = }'
+        return f'Properties:\n{width = },\n{height = },\n{fps = },\n{calibration = }'
+
+
+@dataclass(frozen=True)
+class Input:
+    name: str
+    source: Path
+    calibration: Calibration | None = None
+
+    def __post_init__(self) -> None:
+        if not self.source.is_file():
+            raise ValueError(f'Invalid video source: {self.source}')
 
 
 class Reader:
-    source: str
+    source: Path
     batch_size: int
     decoder: cv2.VideoCapture
 
-    __input_properties: Properties
-    __mimicked_properties: Properties
     properties: Properties
+    __input_properties: Properties
 
     __frame_repetitions: int
-
     __read_repetitions_left: int
     __read_last_frame: Frame
 
     def __init__(
         self,
-        source: str,
+        input: Input,
         *,
-        perspective: Perspective,
         batch_size: int,
-        like: Properties | None = None,
+        height: int | None = None,
+        width: int | None = None,
+        fps: int | None = None,
     ) -> None:
-        self.source = source
+        self.input = input
         self.batch_size = batch_size
 
-        decoder = cv2.VideoCapture(source)
-        self.decoder = decoder
+        self.decoder = decoder = cv2.VideoCapture(str(input.source))
+        input_length = int(decoder.get(cv2.CAP_PROP_FRAME_COUNT))
+        input_height = int(decoder.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        input_width = int(decoder.get(cv2.CAP_PROP_FRAME_WIDTH))
+        input_fps = int(decoder.get(cv2.CAP_PROP_FPS))
 
-        width = int(decoder.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(decoder.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = int(decoder.get(cv2.CAP_PROP_FPS))
+        mimicked_height = height or input_height
+        mimicked_width = width or input_width
+        mimicked_fps = fps or input_fps
 
-        input_properties = Properties(width, height, fps, perspective)
-        self.__input_properties = input_properties
-        self.__mimicked_properties = self.properties = copy(like) or input_properties
-        self.properties.perspective = perspective
-
-        self.__frame_repetitions = int(
-            math.ceil(self.__mimicked_properties.fps / input_properties.fps)
-        )
-
+        self.__frame_repetitions = 1 if fps is None else int(math.ceil(fps / input_fps))
         self.__read_repetitions_left = 0
         self.__read_last_frame = None  # type: ignore  # A kind of `lateinit` field
+
+        input_calibration = input.calibration or Calibration.heuristic(
+            input_height, input_width
+        )
+
+        output_calibration = input_calibration.resized(
+            1.0 if width is None else width / input_width,
+            1.0 if height is None else height / input_height,
+        )
+
+        self.__input_properties = Properties(
+            input_length,
+            input_height,
+            input_width,
+            input_fps,
+            input_calibration,
+        )
+
+        # Output properties with maybe mimicked parameters
+        self.properties = Properties(
+            input_length * self.__frame_repetitions,
+            mimicked_height,
+            mimicked_width,
+            mimicked_fps,
+            output_calibration,
+        )
 
     def __del__(self) -> None:
         self.decoder.release()
@@ -155,10 +239,10 @@ class Reader:
 
         fx, fy = self.__input_properties.calibration.focal_length
 
-        mimicked_properties = self.__mimicked_properties
-        destination_size = mimicked_properties.width, mimicked_properties.height
+        output_properties = self.properties
+        output_size = output_properties.width, output_properties.height
 
-        frame = cv2.resize(frame, destination_size, fx=fx, fy=fy)  # type: ignore
+        frame = cv2.resize(frame, output_size, fx=fx, fy=fy)  # type: ignore
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # type: ignore
         frame.flags.writeable = False
 
@@ -166,6 +250,12 @@ class Reader:
         self.__read_last_frame = frame
 
         return frame
+
+    def read_skipping(self, skip: int) -> Frame | None:
+        for _ in range(skip - 1):
+            self.read()
+
+        return self.read()
 
     def read_batch(self) -> list[Frame] | None:
         decoder = self.decoder
@@ -176,8 +266,8 @@ class Reader:
 
         fx, fy = self.__input_properties.calibration.focal_length
 
-        mimicked_properties = self.__mimicked_properties
-        destination_size = mimicked_properties.width, mimicked_properties.height
+        output_properties = self.properties
+        output_size = output_properties.width, output_properties.height
 
         frame: Frame
         batch: list[Frame] = []
@@ -191,7 +281,7 @@ class Reader:
             if not success:
                 return None
 
-            frame = cv2.resize(frame, destination_size, fx=fx, fy=fy)  # type: ignore
+            frame = cv2.resize(frame, output_size, fx=fx, fy=fy)  # type: ignore
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # type: ignore
             frame.flags.writeable = False
 
@@ -205,10 +295,10 @@ class Reader:
         batch_size = self.batch_size
 
         input_properties = self.__input_properties
-        mimicked_properties = self.__mimicked_properties
-        destination_size = mimicked_properties.width, mimicked_properties.height
+        output_properties = self.properties
+        destination_size = output_properties.width, output_properties.height
 
-        frame_repeats = int(math.ceil(mimicked_properties.fps / input_properties.fps))
+        frame_repeats = int(math.ceil(output_properties.fps / input_properties.fps))
 
         fx, fy = input_properties.calibration.focal_length
 

@@ -35,7 +35,7 @@ type Input = tuple[list[Frame], list[face.Result | None] | None]
 
 
 class Estimator:
-    MODELS_DIR = str(MODELS_ROOT / 'model')
+    MODELS_DIR = MODELS_ROOT / 'model'
 
     input: Properties
 
@@ -78,7 +78,7 @@ class Estimator:
         center_shift = np.array((cx, cy, 0.0), dtype=np.float32).reshape(1, 1, -1)
 
         eyes: list[FloatArray3 | None] = []
-        directions: list[FloatArray3 | None] = []
+        directions: list[FloatArray3 | None] = []  # in fact arrays are 1 x 2 x 3
 
         box: IntArray1
 
@@ -95,7 +95,7 @@ class Estimator:
                 continue
 
             eyes.append(detection.eyes + center_shift)
-            directions.append(detection.directions)
+            directions.append(detection.directions)  # type: ignore
 
         match (
             imputed_with_zeros_reference_inplace(eyes),

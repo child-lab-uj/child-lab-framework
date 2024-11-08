@@ -52,18 +52,9 @@ class Estimator:
 
         config = Config(checkpoint=self.MODEL_PATH)
         self.model_config = config
-
-        memory_usage = float(torch.mps.current_allocated_memory()) / 1024.0 / 1024.0
-
         self.model = DepthPro(config, device, torch.half)
 
-        memory_usage_after_creation = (
-            float(torch.mps.current_allocated_memory()) / 1024.0 / 1024.0
-        )
-
-        Logger.info(
-            f'Depth model created; memory usage: before: {memory_usage:.2f} MiB, after: {memory_usage_after_creation:.2f} MiB'
-        )
+        Logger.info('Depth model created')
 
         self.to_model = Compose(
             [

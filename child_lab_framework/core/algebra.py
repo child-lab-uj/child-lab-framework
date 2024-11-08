@@ -1,7 +1,8 @@
 from enum import IntEnum
+
 import numpy as np
 
-from ..typing.array import FloatArray2, FloatArray3
+from ..typing.array import FloatArray1, FloatArray2, FloatArray3
 
 
 class Axis(IntEnum):
@@ -41,3 +42,48 @@ def normalized_3d(batched_vecs: FloatArray3) -> FloatArray3:
 
 def orthogonal(vecs: FloatArray2) -> FloatArray2:
     return vecs[:, [1, 0]] * np.array([1.0, -1.0], dtype=np.float32)
+
+
+def kabsch(
+    from_points: FloatArray2,
+    to_points: FloatArray2,
+) -> tuple[FloatArray2, FloatArray1]:
+    if from_points.shape != to_points.shape:
+        raise ValueError(
+            f'Expected inputs and outputs of equal shape, got input: {from_points.shape}, output: {to_points.shape}'
+        )
+
+    n_rows, n_columns = from_points.shape
+    if n_columns != 3:
+        raise ValueError(
+            f'Expected points_input_frame to have shape n x 3, got {n_rows} x {n_columns}'
+        )
+
+    n_rows, n_columns = to_points.shape
+    if n_columns != 3:
+        raise ValueError(
+            f'Expected points_output_frame to have shape n x 3, got {n_rows} x {n_columns}'
+        )
+
+    from_center = np.mean(from_points, axis=0)
+    to_center = np.mean(to_points, axis=0)
+
+    from_points_centered = from_points - from_center
+    to_points_centered = to_points - to_center
+
+    cross_covariance = from_points_centered.T @ to_points_centered
+
+    decomposition = np.linalg.svd(cross_covariance)
+    ut: FloatArray2 = decomposition.U.T
+    v: FloatArray2 = decomposition.Vh.T
+
+    rotation: FloatArray2 = v @ ut
+
+    # special reflection case
+    if np.linalg.det(rotation) < 0.0:
+        v[:, -1] *= -1.0
+        rotation: FloatArray2 = v @ ut
+
+    translation: FloatArray2 = -rotation @ from_center + to_center
+
+    return rotation, translation.squeeze()
