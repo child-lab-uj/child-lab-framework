@@ -223,14 +223,14 @@ def main(
             window_left_frames,
             window_left_poses,
             window_left_faces,
-            None,
+            window_left_gazes,
         )
 
         window_right_annotated_frames = visualizer.annotate_batch(
             window_right_frames,
             window_right_poses,
             window_right_faces,
-            None,
+            window_right_gazes,
         )
 
         ceiling_writer.write_batch(ceiling_annotated_frames)
