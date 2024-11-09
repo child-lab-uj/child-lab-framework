@@ -1,28 +1,44 @@
+from pathlib import Path
+
 import cv2
 import numpy as np
 from tqdm import trange
 
 from ..core.calibration import Calibration
 from ..core.detection import chessboard
-from ..core.video import Input, Reader
+from ..core.video import Format, Input, Reader, Writer
+from ..task.visualization import Configuration, Visualizer
 from ..typing.array import FloatArray2, FloatArray3
 
 
 # TODO: Implement procedures as classes with `Iterable` protocol
 # to make them both usable with tqdm and exportable as purely programistic library elements
 def run(
-    input: Input,
+    video_source: Path,
+    annotated_video_destination: Path,
     board_properties: chessboard.Properties,
     skip: int,
 ) -> Calibration:
     reader = Reader(
-        input,
+        Input(video_source.name, video_source, None),
         batch_size=1,
     )
 
-    detector = chessboard.Detector(board_properties)
-
     video_properties = reader.properties
+
+    writer = Writer(
+        annotated_video_destination,
+        video_properties,
+        output_format=Format.MP4,
+    )
+
+    visualizer = Visualizer(
+        None,  # type: ignore
+        properties=video_properties,
+        configuration=Configuration(),
+    )
+
+    detector = chessboard.Detector(board_properties)
 
     inner_corners_per_row = board_properties.inner_corners_per_row
     inner_corners_per_column = board_properties.inner_corners_per_column
@@ -52,6 +68,8 @@ def run(
 
         if result is None:
             continue
+
+        writer.write(visualizer.annotate(frame, result))
 
         object_points.append(chessboard_3d_model)
         image_points.append(result.corners)
