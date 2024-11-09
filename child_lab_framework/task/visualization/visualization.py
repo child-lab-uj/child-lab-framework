@@ -11,12 +11,22 @@ from ...typing.stream import Fiber
 from .. import face, gaze, pose
 from ..gaze import ceiling_projection
 from ..pose.keypoint import YOLO_SKELETON, YoloKeypoint
+from .configuration import Configuration
 
 type Input = tuple[
     list[Frame] | None,
     list[pose.Result | None] | None,
     list[ceiling_projection.Result | None] | None,
 ]
+
+
+class Visualizable[T: Configuration](typing.Protocol):
+    def visualize(
+        self,
+        frame: Frame,
+        frame_properties: Properties,
+        configuration: T,
+    ) -> Frame: ...
 
 
 class Visualizer:
