@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from enum import IntEnum, auto
 
+import cv2
 import numpy as np
 import torch
 import ultralytics
@@ -14,11 +15,11 @@ from ultralytics.engine import results as yolo
 from ...core.geometry import area_broadcast
 from ...core.sequence import imputed_with_reference_inplace
 from ...core.video import Frame, Properties
-from ...typing.array import FloatArray1, FloatArray2, FloatArray3
+from ...typing.array import FloatArray1, FloatArray2, FloatArray3, IntArray1
 from ...typing.stream import Fiber
 from ...util import MODELS_DIR
 from .duplication import deduplicated
-from .keypoint import YoloKeypoint
+from .keypoint import YOLO_SKELETON, YoloKeypoint
 
 type Box = FloatArray1
 type BatchedBoxes = FloatArray2
@@ -96,6 +97,67 @@ class Result:
         self.__depersonificated_keypoints = stacked_keypoints
 
         return stacked_keypoints
+
+    def visualize(
+        self,
+        frame: Frame,
+        frame_properties: Properties,
+        configuration: typing.Any,  # TODO: Add hint
+    ) -> Frame:
+        actor_keypoints: FloatArray2
+
+        draw_skeletons = configuration.pose_draw_skeletons
+        draw_boxes = configuration.pose_draw_boxes
+
+        # TODO: draw keypoint confidence
+        if draw_skeletons:
+            bone_color = configuration.pose_bone_color
+            bone_thickness = configuration.pose_bone_thickness
+            keypoint_color = configuration.pose_keypoint_color
+            keypoint_radius = configuration.pose_keypoint_radius
+            keypoint_threshold = configuration.pose_keypoint_confidence_threshold
+
+            for actor_keypoints in self.keypoints:
+                for i, j in YOLO_SKELETON:
+                    if actor_keypoints[i, -1] < keypoint_threshold:
+                        continue
+
+                    if actor_keypoints[j, -1] < keypoint_threshold:
+                        continue
+
+                    start = typing.cast(
+                        cv2.typing.Point, actor_keypoints[i, :-1].astype(int)
+                    )
+                    end = typing.cast(
+                        cv2.typing.Point, actor_keypoints[j, :-1].astype(int)
+                    )
+
+                    cv2.line(frame, start, end, bone_color, bone_thickness)
+
+                for keypoint in actor_keypoints:
+                    if keypoint[-1] < keypoint_threshold:
+                        continue
+
+                    keypoint = typing.cast(cv2.typing.Point, keypoint.astype(int))
+
+                    cv2.circle(frame, keypoint[:-1], keypoint_radius, keypoint_color, -1)
+
+        # TODO: draw bounding box confidence
+        if draw_boxes:
+            color = configuration.pose_bounding_box_color
+            thickness = configuration.pose_bounding_box_thickness
+            threshold = configuration.pose_bounding_box_confidence_threshold
+
+            box: IntArray1
+            for box in self.boxes.astype(int):
+                x1, y1, x2, y2, confidence, *_ = box
+
+                if confidence < threshold:
+                    continue
+
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)  # type: ignore
+
+        return frame
 
 
 class Estimator:

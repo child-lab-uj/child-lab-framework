@@ -2,13 +2,15 @@ import asyncio
 from concurrent.futures.thread import ThreadPoolExecutor
 from dataclasses import dataclass
 from itertools import starmap
+from typing import Any
 
+import cv2
 import numpy as np
 
 from ...core.sequence import imputed_with_reference_inplace
 from ...core.stream import InvalidArgumentException
 from ...core.video import Properties
-from ...typing.array import FloatArray1, FloatArray2
+from ...typing.array import FloatArray1, FloatArray2, IntArray1
 from ...typing.stream import Fiber
 from ...typing.video import Frame
 from .. import pose
@@ -22,6 +24,29 @@ type Input = tuple[list[Frame] | None, list[pose.Result | None] | None]
 class Result:
     boxes: FloatArray2
     confidences: FloatArray1
+
+    def visualize(
+        self,
+        frame: Frame,
+        frame_properties: Properties,
+        configuration: Any,  # TODO: Add hint
+    ) -> Frame:
+        draw_boxes = configuration.face_draw_bounding_boxes
+        draw_confidences = configuration.face_draw_confidences
+
+        if draw_boxes:
+            color = configuration.face_bounding_box_color
+            thickness = configuration.face_bounding_box_thickness
+
+            box: IntArray1
+            for box in self.boxes:
+                x1, y1, x2, y2 = box
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
+
+        if draw_confidences:
+            ...  # TODO: annotate bounding boxes with confidence
+
+        return frame
 
 
 class Estimator:

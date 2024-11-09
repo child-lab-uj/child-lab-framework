@@ -1,8 +1,10 @@
 import asyncio
+import typing
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from itertools import repeat, starmap
 
+import cv2
 import numpy as np
 
 from ...core.sequence import imputed_with_reference_inplace
@@ -10,8 +12,9 @@ from ...core.stream import InvalidArgumentException
 from ...core.transformation import ProjectiveTransformation
 from ...core.video import Properties
 from ...logging import Logger
-from ...typing.array import BoolArray1, FloatArray2
+from ...typing.array import BoolArray1, FloatArray1, FloatArray2
 from ...typing.stream import Fiber
+from ...typing.video import Frame
 from .. import face, pose
 from . import ceiling_baseline, gaze
 
@@ -31,6 +34,35 @@ class Result:
     centres: FloatArray2
     directions: FloatArray2
     was_corrected: BoolArray1
+
+    def visualize(
+        self,
+        frame: Frame,
+        frame_properties: Properties,
+        configuration: typing.Any,  # TODO: Add hint
+    ) -> Frame:
+        starts = self.centres
+        ends = starts + 100.0 * self.directions
+
+        start: FloatArray1
+        end: FloatArray1
+
+        basic_color = configuration.gaze_line_color
+        baseline_color = configuration.gaze_baseline_line_color
+        thickness = configuration.gaze_line_thickness
+
+        for start, end, was_corrected in zip(starts, ends, self.was_corrected):
+            color = basic_color if was_corrected else baseline_color
+
+            cv2.line(
+                frame,
+                typing.cast(cv2.typing.Point, start.astype(np.int32)),
+                typing.cast(cv2.typing.Point, end.astype(np.int32)),
+                color,
+                thickness,
+            )
+
+        return frame
 
 
 class Estimator:

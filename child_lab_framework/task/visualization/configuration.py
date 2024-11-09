@@ -17,6 +17,7 @@ class Configuration:
     gaze_line_color: Color = (255.0, 255.0, 0.0, 1.0)
     gaze_baseline_line_color: Color = (0.0, 255.0, 255.0, 1.0)
     gaze_line_thickness: int = 5
+    gaze_line_length: int = 250
 
     pose_draw_skeletons: bool = True
     pose_draw_skeletons_confidence: bool = True
