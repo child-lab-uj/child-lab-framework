@@ -18,6 +18,7 @@ from ...core.video import Frame, Properties
 from ...typing.array import FloatArray1, FloatArray2, FloatArray3, IntArray1
 from ...typing.stream import Fiber
 from ...util import MODELS_DIR
+from .. import visualization
 from .duplication import deduplicated
 from .keypoint import YOLO_SKELETON, YoloKeypoint
 
@@ -102,12 +103,12 @@ class Result:
         self,
         frame: Frame,
         frame_properties: Properties,
-        configuration: typing.Any,  # TODO: Add hint
+        configuration: visualization.Configuration,
     ) -> Frame:
         actor_keypoints: FloatArray2
 
         draw_skeletons = configuration.pose_draw_skeletons
-        draw_boxes = configuration.pose_draw_boxes
+        draw_boxes = configuration.pose_draw_bounding_boxes
 
         # TODO: draw keypoint confidence
         if draw_skeletons:

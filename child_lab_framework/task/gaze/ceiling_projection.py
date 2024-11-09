@@ -15,7 +15,7 @@ from ...logging import Logger
 from ...typing.array import BoolArray1, FloatArray1, FloatArray2
 from ...typing.stream import Fiber
 from ...typing.video import Frame
-from .. import face, pose
+from .. import face, pose, visualization
 from . import ceiling_baseline, gaze
 
 type Input = tuple[
@@ -39,7 +39,7 @@ class Result:
         self,
         frame: Frame,
         frame_properties: Properties,
-        configuration: typing.Any,  # TODO: Add hint
+        configuration: visualization.Configuration,
     ) -> Frame:
         starts = self.centres
         ends = starts + 100.0 * self.directions

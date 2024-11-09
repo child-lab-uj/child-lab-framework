@@ -2,7 +2,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TextIO
+from typing import TextIO
 
 import numpy as np
 from scipy.spatial.distance import pdist
@@ -11,7 +11,7 @@ from ...core.video import Properties
 from ...typing.array import FloatArray2
 from ...typing.stream import Fiber
 from ...typing.video import Frame
-from .. import pose
+from .. import pose, visualization
 
 
 @dataclass
@@ -24,7 +24,7 @@ class Result:
         self,
         frame: Frame,
         frame_properties: Properties,
-        configuration: Any,  # TODO: Add hint
+        configuration: visualization.Configuration,
     ) -> Frame:
         # TODO: Add actor centers to `Result` to be able to draw a line
         return frame

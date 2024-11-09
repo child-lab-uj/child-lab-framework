@@ -2,7 +2,6 @@ import asyncio
 from concurrent.futures.thread import ThreadPoolExecutor
 from dataclasses import dataclass
 from itertools import starmap
-from typing import Any
 
 import cv2
 import numpy as np
@@ -13,7 +12,7 @@ from ...core.video import Properties
 from ...typing.array import FloatArray1, FloatArray2, IntArray1
 from ...typing.stream import Fiber
 from ...typing.video import Frame
-from .. import pose
+from .. import pose, visualization
 from ..pose.keypoint import YoloKeypoint
 from . import mtcnn
 
@@ -29,10 +28,10 @@ class Result:
         self,
         frame: Frame,
         frame_properties: Properties,
-        configuration: Any,  # TODO: Add hint
+        configuration: visualization.Configuration,
     ) -> Frame:
         draw_boxes = configuration.face_draw_bounding_boxes
-        draw_confidences = configuration.face_draw_confidences
+        draw_confidences = configuration.face_draw_confidence
 
         if draw_boxes:
             color = configuration.face_bounding_box_color

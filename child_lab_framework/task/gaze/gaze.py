@@ -17,7 +17,7 @@ from ...core.video import Frame, Properties
 from ...typing.array import FloatArray2, FloatArray3, IntArray1
 from ...typing.stream import Fiber
 from ...util import MODELS_DIR as MODELS_ROOT
-from .. import face
+from .. import face, visualization
 
 
 @dataclass
@@ -36,7 +36,7 @@ class Result:
         self,
         frame: Frame,
         frame_properties: Properties,
-        configuration: typing.Any,  # TODO: Add hint
+        configuration: visualization.Configuration,
     ) -> Frame:
         if not configuration.gaze_draw_lines:
             return frame

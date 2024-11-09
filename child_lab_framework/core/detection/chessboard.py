@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import Any
 
 import cv2 as opencv
 import numpy as np
 
+from ...task import visualization
 from ...typing.array import FloatArray2, FloatArray3
 from ...typing.video import Frame
 from .. import video
@@ -25,7 +25,7 @@ class Result:
         self,
         frame: Frame,
         frame_properties: video.Properties,
-        configuration: Any,  # TODO: Add hint
+        configuration: visualization.Configuration,
     ) -> Frame:
         if not configuration.chessboard_draw_corners:
             return frame

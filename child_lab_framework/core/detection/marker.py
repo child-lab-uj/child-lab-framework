@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, Self
+from typing import Self
 
 import cv2 as opencv
 import cv2.aruco as opencv_aruco
 import numpy as np
 
+from ...task import visualization
 from ...typing.array import FloatArray2, FloatArray3, IntArray1
 from ...typing.video import Frame
 from .. import serialization, transformation
@@ -127,7 +128,7 @@ class Result:
         self,
         frame: Frame,
         frame_properties: Properties,
-        configuration: Any,  # TODO: Add hint
+        configuration: visualization.Configuration,
     ) -> Frame:
         draw_boxes = configuration.marker_draw_bounding_boxes
         draw_ids = configuration.marker_draw_ids
