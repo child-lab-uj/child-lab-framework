@@ -1,6 +1,8 @@
 from enum import IntEnum
+from typing import Literal
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 from ..typing.array import FloatArray1, FloatArray2, FloatArray3, FloatArray6
 from .calibration import Calibration
@@ -29,6 +31,20 @@ def rotation_matrix(angle: float, axis: Axis) -> FloatArray2:
             return np.array(
                 [[cos, -sin, 0.0], [sin, cos, 0.0], [0.0, 0.0, 1.0]], dtype=np.float32
             )
+
+
+def euler_angles_from_rotation_matrix(
+    rotation: FloatArray2,
+) -> np.ndarray[tuple[Literal[3]], np.dtype[np.float32]]:
+    return (
+        Rotation.from_matrix(rotation).as_euler('xyz', degrees=False).astype(np.float32)
+    )
+
+
+def rotation_matrix_from_euler_angles(
+    angles: np.ndarray[tuple[Literal[3]], np.dtype[np.float32]],
+) -> FloatArray2:
+    return Rotation.from_euler('xyz', angles, degrees=False).as_matrix()
 
 
 def normalized(vecs: FloatArray2) -> FloatArray2:

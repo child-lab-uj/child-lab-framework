@@ -189,11 +189,18 @@ def estimate_transformations(
     required=False,
     help='Torch device to use for tensor computations',
 )
+@click.option(
+    '--skip',
+    type=int,
+    required=False,
+    help='Seconds of videos to skip at the beginning',
+)
 # @click_trap()
 def process(
     workspace: Path,
     videos: list[Path],
     device: str | None,
+    skip: int | None,
 ) -> None:
     video_dir = workspace / 'input'
     calibration_dir = workspace / 'calibration'
@@ -227,7 +234,7 @@ def process(
 
     click.echo(f'Processing {"video" if len(videos) == 1 else "videos"}...')
 
-    demo_sequential.main(inputs, device_handle, destination)  # type: ignore
+    demo_sequential.main(inputs, device_handle, destination, skip)  # type: ignore
 
     click.echo('Done!')
 
