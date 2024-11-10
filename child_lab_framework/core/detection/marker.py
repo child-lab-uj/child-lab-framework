@@ -6,10 +6,12 @@ import cv2 as opencv
 import cv2.aruco as opencv_aruco
 import numpy as np
 
+from ...task import visualization
 from ...typing.array import FloatArray2, FloatArray3, IntArray1
 from ...typing.video import Frame
 from .. import serialization, transformation
 from ..calibration import Calibration
+from ..video import Properties
 
 
 # Can't stand that awful OpenCV's constants ported directly from C++; enum is better
@@ -120,6 +122,52 @@ class Result:
     corners: FloatArray3
     ids: IntArray1
     transformations: list[transformation.ProjectiveTransformation | None]
+
+    # TODO: Implement custom drawing procedure
+    def visualize(
+        self,
+        frame: Frame,
+        frame_properties: Properties,
+        configuration: visualization.Configuration,
+    ) -> Frame:
+        draw_boxes = configuration.marker_draw_bounding_boxes
+        draw_ids = configuration.marker_draw_ids
+        draw_axes = configuration.marker_draw_axes
+        draw_angles = configuration.marker_draw_angles
+
+        if draw_boxes:
+            color = configuration.marker_bounding_box_color
+            opencv_aruco.drawDetectedMarkers(frame, list(self.corners), self.ids, color)
+
+        if draw_ids:
+            ...  # TODO: implement with custom procedure
+
+        calibration = frame_properties.calibration
+        intrinsics = calibration.intrinsics
+        distortion = calibration.distortion
+
+        if draw_axes:
+            length = configuration.marker_axis_length
+            thickness = configuration.marker_axis_thickness
+
+            for transformation in self.transformations:
+                if transformation is None:
+                    continue
+
+                opencv.drawFrameAxes(
+                    frame,
+                    intrinsics,
+                    distortion,
+                    transformation.rotation,
+                    transformation.translation,
+                    length,
+                    thickness,
+                )
+
+        if draw_angles:
+            ...  # TODO: draw rotation angles around axes
+
+        return frame
 
 
 class Detector:

@@ -38,8 +38,8 @@ class click_trap(ContextDecorator):
 
 
 @click.command('calibrate')
-@click.argument('source', type=Path)
-@click.argument('destination', type=Path)
+@click.argument('workspace', type=Path)
+@click.argument('videos', type=Path, nargs=-1)
 @click.option('--square-size', type=float, help='Board square size in centimeters')
 @click.option(
     '--inner-board-corners',
@@ -54,24 +54,49 @@ class click_trap(ContextDecorator):
 )
 @click_trap()
 def calibrate(
-    source: Path,
-    destination: Path,
+    workspace: Path,
+    videos: list[Path],
     square_size: float,
     inner_board_corners: tuple[int, int],
     skip: int,
 ) -> None:
-    click.echo(f'Calibrating camera from {source}...')
+    video_input_dir = workspace / 'input'
+    calibration_output_dir = workspace / 'calibration'
+    video_output_dir = workspace / 'output'
 
-    result = calibration_procedure.run(
-        Input('calibration', source, None),
-        chessboard.Properties(square_size, *inner_board_corners),
-        skip,
-    )
+    if not workspace.is_dir():
+        raise ValueError(f'{workspace} is not valid workspace directory')
 
-    click.echo(f'Calibration complete! Estimated parameters:\n{result}')
-    click.echo(f'Saving to {destination}...')
+    if not video_input_dir.is_dir():
+        raise ValueError(f'{video_input_dir} is not valid video input directory')
 
-    save(result, destination)
+    if not calibration_output_dir.is_dir():
+        raise ValueError(
+            f'{calibration_output_dir} is not valid calibration output directory'
+        )
+
+    if not video_output_dir.is_dir():
+        raise ValueError(f'{calibration_output_dir} is not valid video output directory')
+
+    for video in videos:
+        click.echo(f'Calibrating camera from {video}...')
+
+        video_input = video_input_dir / video
+        video_output = video_output_dir / video
+        calibration_output = calibration_output_dir / f'{video.stem}.yml'
+
+        calibration = calibration_procedure.run(
+            video_input,
+            video_output,
+            chessboard.Properties(square_size, *inner_board_corners),
+            skip,
+        )
+
+        click.echo(f'Calibration complete! Estimated parameters:\n{calibration}')
+        click.echo(f'Saving results to {calibration_output}...')
+        click.echo('')
+
+        save(calibration, calibration_output)
 
 
 @click.command('estimate-transformations')
@@ -100,18 +125,30 @@ def estimate_transformations(
     device: str | None,
     checkpoint: Path | None,
 ) -> None:
-    video_dir = workspace / 'input'
-    calibration_dir = workspace / 'calibration'
-    destination = workspace / 'buffer.json'
+    video_input_dir = workspace / 'input'
+    video_output_dir = workspace / 'output'
+    calibration_input_dir = workspace / 'calibration'
+    transformation_output_dir = workspace / 'transformation'
+    transformation_output = transformation_output_dir / 'buffer.json'
 
     if not workspace.is_dir():
         raise ValueError(f'{workspace} is not valid workspace directory')
 
-    if not video_dir.is_dir():
-        raise ValueError(f'{video_dir} is not valid video directory')
+    if not video_input_dir.is_dir():
+        raise ValueError(f'{video_input_dir} is not valid video input directory')
 
-    if not calibration_dir.is_dir():
-        raise ValueError(f'{calibration_dir} is not valid calibration directory')
+    if not video_output_dir.is_dir():
+        raise ValueError(f'{video_output_dir} is not valid video output directory')
+
+    if not calibration_input_dir.is_dir():
+        raise ValueError(
+            f'{calibration_input_dir} is not valid calibration input directory'
+        )
+
+    if not transformation_output_dir.is_dir():
+        raise ValueError(
+            f'{calibration_input_dir} is not valid transformation output directory'
+        )
 
     device_handle = torch.device(device or 'cpu')
     model = marker.RigidModel(marker_size, 0.0)
@@ -122,26 +159,25 @@ def estimate_transformations(
 
     config = transformation_procedure.Config(model, dictionary)
 
-    video_names = [path.name for path in videos]
-    video_full_paths = [video_dir / video for video in videos]
-
     calibrations = [
-        load(Calibration, calibration_dir / (name + '.yml')) for name in video_names
-    ]
-
-    inputs = [
-        transformation_procedure.Input(name, video, calibration)
-        for name, video, calibration in zip(video_names, video_full_paths, calibrations)
+        load(Calibration, calibration_input_dir / (video.stem + '.yml'))
+        for video in videos
     ]
 
     click.echo('Estimating transformations...')
 
-    result = transformation_procedure.run(inputs, config, device_handle)
+    buffer = transformation_procedure.run(
+        [video_input_dir / video for video in videos],
+        [video_output_dir / video for video in videos],
+        calibrations,
+        config,
+        device_handle,
+    )
 
-    click.echo(f'Estimation complete! Estimated transformations:\n{result}')
-    click.echo(f'Saving results to {destination}...')
+    click.echo(f'Estimation complete! Estimated transformations:\n{buffer}')
+    click.echo(f'Saving results to {transformation_output}...')
 
-    save(result, destination)
+    save(buffer, transformation_output)
 
 
 @click.command('process')

@@ -8,6 +8,7 @@ from ..core.video import Format, Input, Reader, Writer
 from ..logging import Logger
 from ..task import depth, face, gaze, pose
 from ..task.camera import transformation
+from ..task.visualization import Configuration as VisualizationConfiguration
 from ..task.visualization import Visualizer
 
 BATCH_SIZE = 32
@@ -89,26 +90,38 @@ def main(
     # social_distance_estimator = social_distance.Estimator(executor)
     # social_distance_logger = social_distance.FileLogger('dev/output/distance.csv')
 
-    visualizer = Visualizer(
+    ceiling_visualizer = Visualizer(
+        executor,
+        properties=ceiling_reader.properties,
+        configuration=VisualizationConfiguration(),
+    )
+
+    window_left_visualizer = Visualizer(
         executor,
         properties=window_left_reader.properties,
-        confidence_threshold=0.5,
+        configuration=VisualizationConfiguration(),
+    )
+
+    window_right_visualizer = Visualizer(
+        executor,
+        properties=window_right_reader.properties,
+        configuration=VisualizationConfiguration(),
     )
 
     ceiling_writer = Writer(
-        str(output_directory / (ceiling.name + '.mp4')),
+        output_directory / (ceiling.name + '.mp4'),
         ceiling_reader.properties,
         output_format=Format.MP4,
     )
 
     window_left_writer = Writer(
-        str(output_directory / (window_left.name + '.mp4')),
+        output_directory / (window_left.name + '.mp4'),
         window_left_reader.properties,
         output_format=Format.MP4,
     )
 
     window_right_writer = Writer(
-        str(output_directory / (window_right.name + '.mp4')),
+        output_directory / (window_right.name + '.mp4'),
         window_right_reader.properties,
         output_format=Format.MP4,
     )
@@ -225,21 +238,20 @@ def main(
         Logger.info('Done!')
 
         Logger.info('Visualizing results...')
-        ceiling_annotated_frames = visualizer.annotate_batch(
+        ceiling_annotated_frames = ceiling_visualizer.annotate_batch(
             ceiling_frames,
             ceiling_poses,
-            None,
             ceiling_gazes,
         )
 
-        window_left_annotated_frames = visualizer.annotate_batch(
+        window_left_annotated_frames = window_left_visualizer.annotate_batch(
             window_left_frames,
             window_left_poses,
             window_left_faces,
             window_left_gazes,
         )
 
-        window_right_annotated_frames = visualizer.annotate_batch(
+        window_right_annotated_frames = window_right_visualizer.annotate_batch(
             window_right_frames,
             window_right_poses,
             window_right_faces,

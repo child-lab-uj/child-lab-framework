@@ -226,20 +226,31 @@ class Reader:
 
 
 class Writer:
-    destination: str
+    destination: Path
     properties: Properties
     output_format: Format
     encoder: cv2.VideoWriter
 
     def __init__(
-        self, destination: str, properties: Properties, *, output_format: Format
+        self,
+        destination: Path,
+        properties: Properties,
+        *,
+        output_format: Format,
     ) -> None:
         self.destination = destination
         self.properties = properties
         self.output_format = output_format
 
+        # TODO: Implement general resolution (Issue #61)
+        destination_with_resolved_format = (
+            str(destination).removesuffix(destination.suffix) + '.mp4'
+            if output_format == Format.MP4
+            else '.avi'
+        )
+
         self.encoder = cv2.VideoWriter(
-            destination,
+            destination_with_resolved_format,
             fourcc=cv2.VideoWriter.fourcc(*output_format.value),
             fps=int(properties.fps),
             frameSize=(int(properties.width), int(properties.height)),

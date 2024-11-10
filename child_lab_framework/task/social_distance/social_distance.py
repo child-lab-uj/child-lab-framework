@@ -7,9 +7,11 @@ from typing import TextIO
 import numpy as np
 from scipy.spatial.distance import pdist
 
+from ...core.video import Properties
 from ...typing.array import FloatArray2
 from ...typing.stream import Fiber
-from .. import pose
+from ...typing.video import Frame
+from .. import pose, visualization
 
 
 @dataclass
@@ -17,6 +19,15 @@ class Result:
     actors: list[pose.Actor]
     distances: FloatArray2
     # TODO: additional results (e.g. related to time series)
+
+    def visualize(
+        self,
+        frame: Frame,
+        frame_properties: Properties,
+        configuration: visualization.Configuration,
+    ) -> Frame:
+        # TODO: Add actor centers to `Result` to be able to draw a line
+        return frame
 
 
 class Estimator:

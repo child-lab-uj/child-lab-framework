@@ -1,8 +1,10 @@
 import asyncio
+import typing
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from itertools import repeat, starmap
 
+import cv2
 import mini_face as mf
 import numpy as np
 
@@ -12,10 +14,10 @@ from ...core.sequence import (
 )
 from ...core.stream import InvalidArgumentException
 from ...core.video import Frame, Properties
-from ...typing.array import FloatArray3, IntArray1
+from ...typing.array import FloatArray2, FloatArray3, IntArray1
 from ...typing.stream import Fiber
 from ...util import MODELS_DIR as MODELS_ROOT
-from .. import face
+from .. import face, visualization
 
 
 @dataclass
@@ -29,6 +31,67 @@ class Result:
     eyes: FloatArray3
     directions: FloatArray3
     was_projected: bool = field(default=False)
+
+    def visualize(
+        self,
+        frame: Frame,
+        frame_properties: Properties,
+        configuration: visualization.Configuration,
+    ) -> Frame:
+        if not configuration.gaze_draw_lines:
+            return frame
+
+        color = configuration.gaze_line_color
+        thickness = configuration.gaze_line_thickness
+        line_length = configuration.gaze_line_length
+
+        calibration = frame_properties.calibration
+        cx, cy = calibration.optical_center
+        fx, fy = calibration.focal_length
+
+        # TODO: Project using `Projectable` (Issue #59)
+
+        # TODO: remove the rescale (Issue #60)
+        starts = self.eyes.copy() * 8.0 / 28.0
+        ends = starts + float(line_length) * self.directions
+
+        starts_z = starts[..., -1]
+        starts[..., 0] *= fx
+        starts[..., 1] *= fy
+        starts[..., 0] /= starts_z
+        starts[..., 1] /= starts_z
+        starts[..., 0] += cx
+        starts[..., 1] += cy
+
+        ends_z = ends[..., -1]
+        ends[..., 0] *= fx
+        ends[..., 1] *= fy
+        ends[..., 0] /= ends_z
+        ends[..., 1] /= ends_z
+        ends[..., 0] += cx
+        ends[..., 1] += cy
+
+        actor_starts: FloatArray2
+        actor_ends: FloatArray2
+
+        for actor_starts, actor_ends in zip(starts, ends):
+            cv2.line(
+                frame,
+                typing.cast(cv2.typing.Point, actor_starts[0, :2].astype(np.int32)),
+                typing.cast(cv2.typing.Point, actor_ends[0, :2].astype(np.int32)),
+                color,
+                thickness,
+            )
+
+            cv2.line(
+                frame,
+                typing.cast(cv2.typing.Point, actor_starts[1, :2].astype(np.int32)),
+                typing.cast(cv2.typing.Point, actor_ends[1, :2].astype(np.int32)),
+                color,
+                thickness,
+            )
+
+        return frame
 
 
 type Input = tuple[list[Frame], list[face.Result | None] | None]
@@ -73,10 +136,6 @@ class Estimator:
     def predict(self, frame: Frame, faces: face.Result) -> Result | None:
         extractor = self.extractor
 
-        cx = self.optical_center_x
-        cy = self.optical_center_y
-        center_shift = np.array((cx, cy, 0.0), dtype=np.float32).reshape(1, 1, -1)
-
         eyes: list[FloatArray3 | None] = []
         directions: list[FloatArray3 | None] = []  # in fact arrays are 1 x 2 x 3
 
@@ -94,7 +153,7 @@ class Estimator:
                 directions.append(None)
                 continue
 
-            eyes.append(detection.eyes + center_shift)
+            eyes.append(detection.eyes)  # type: ignore
             directions.append(detection.directions)  # type: ignore
 
         match (
