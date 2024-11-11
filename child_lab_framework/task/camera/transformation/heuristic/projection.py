@@ -42,8 +42,8 @@ def estimate(
     if len(from_pose.actors) != len(to_pose.actors):
         return None
 
-    from_keypoints = from_pose.depersonificated_keypoints
-    to_keypoints = to_pose.depersonificated_keypoints
+    from_keypoints = from_pose.flat
+    to_keypoints = to_pose.flat
     common = common_points_indicator(from_keypoints, to_keypoints, confidence_threshold)
 
     if common.size < 6:

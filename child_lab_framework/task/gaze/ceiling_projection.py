@@ -9,7 +9,7 @@ import numpy as np
 
 from ...core.sequence import imputed_with_reference_inplace
 from ...core.stream import InvalidArgumentException
-from ...core.transformation import ProjectiveTransformation
+from ...core.transformation import Transformation
 from ...core.video import Properties
 from ...logging import Logger
 from ...typing.array import BoolArray1, FloatArray1, FloatArray2
@@ -24,8 +24,8 @@ type Input = tuple[
     list[pose.Result | None] | None,
     list[face.Result | None] | None,
     list[face.Result | None] | None,
-    list[ProjectiveTransformation | None] | None,
-    list[ProjectiveTransformation | None] | None,
+    list[Transformation | None] | None,
+    list[Transformation | None] | None,
 ]
 
 
@@ -42,7 +42,7 @@ class Result:
         configuration: visualization.Configuration,
     ) -> Frame:
         starts = self.centres
-        ends = starts + 100.0 * self.directions
+        ends = starts + float(configuration.gaze_line_length) * self.directions
 
         start: FloatArray1
         end: FloatArray1
@@ -66,15 +66,11 @@ class Result:
 
 
 class Estimator:
-    BASELINE_WEIGHT: float = 0.0
-    COLLECTIVE_CORRECTION_WEIGHT: float = 1.0 - BASELINE_WEIGHT
-    TEMPORARY_RESCALE: float = 1000.0  # for numerical stability during projection
+    executor: ThreadPoolExecutor
 
     ceiling_properties: Properties
     window_left_properties: Properties
     window_right_properties: Properties
-
-    executor: ThreadPoolExecutor
 
     def __init__(
         self,
@@ -91,10 +87,10 @@ class Estimator:
     def predict(
         self,
         ceiling_pose: pose.Result,
-        window_left_gaze: gaze.Result | None,
-        window_right_gaze: gaze.Result | None,
-        window_left_to_ceiling: ProjectiveTransformation | None,
-        window_right_to_ceiling: ProjectiveTransformation | None,
+        window_left_gaze: gaze.Result3d | None,
+        window_right_gaze: gaze.Result3d | None,
+        window_left_to_ceiling: Transformation | None,
+        window_right_to_ceiling: Transformation | None,
     ) -> Result:
         centres, directions = ceiling_baseline.estimate(
             ceiling_pose,
@@ -119,43 +115,28 @@ class Estimator:
                 np.array([False for _ in range(len(centres))]),
             )
 
-        correction_weight = self.COLLECTIVE_CORRECTION_WEIGHT / float(correction_count)
-        baseline_weight = self.BASELINE_WEIGHT
-        temporary_rescale = self.TEMPORARY_RESCALE
-
         # slicing gaze direction arrays is a heuristic workaround for a lack of exact actor matching between cameras
         # assuming there are only two actors in the world.
         # gaze detected in the left camera => it belongs the actor on the right
 
         # cannot reuse `correct_from_left` value because the type checker gets confused about not-None values
         if window_left_gaze is not None and window_left_to_ceiling is not None:
-            directions_simplified = (
-                np.squeeze(np.mean(window_left_gaze.directions, axis=1))
-                * temporary_rescale
-            )
+            calibration = self.window_left_properties.calibration
+            projected_gaze = window_left_gaze.transform(
+                window_left_to_ceiling.inverse
+            ).project(calibration)
 
-            directions_projected = (
-                window_left_to_ceiling.project(directions_simplified)
-                / temporary_rescale
-                * correction_weight
-            )
-
-            directions[-1, ...] *= baseline_weight
-            directions[-1, ...] += directions_projected[-1, ...]
+            projected_directions = np.squeeze(np.mean(projected_gaze.directions, axis=1))
+            directions[-1, ...] = projected_directions[-1, ...]
 
         if window_right_gaze is not None and window_right_to_ceiling is not None:
-            directions_simplified = np.squeeze(
-                np.mean(window_right_gaze.directions, axis=1) * temporary_rescale
-            )
+            calibration = self.window_right_properties.calibration
+            projected_gaze = window_right_gaze.transform(
+                window_right_to_ceiling.inverse
+            ).project(calibration)
 
-            directions_projected = (
-                window_right_to_ceiling.project(directions_simplified)
-                / temporary_rescale
-                * correction_weight
-            )
-
-            directions[0, ...] *= baseline_weight
-            directions[0, ...] += directions_projected[0, ...]
+            projected_directions = np.squeeze(np.mean(projected_gaze.directions, axis=1))
+            directions[0, ...] = projected_directions[0, ...]
 
         return Result(
             centres,
@@ -168,10 +149,10 @@ class Estimator:
     def predict_batch(
         self,
         ceiling_poses: list[pose.Result],
-        window_left_gazes: list[gaze.Result] | None,
-        window_right_gazes: list[gaze.Result] | None,
-        window_left_to_ceiling: list[ProjectiveTransformation] | None,
-        window_right_to_ceiling: list[ProjectiveTransformation] | None,
+        window_left_gazes: list[gaze.Result3d] | None,
+        window_right_gazes: list[gaze.Result3d] | None,
+        window_left_to_ceiling: list[Transformation] | None,
+        window_right_to_ceiling: list[Transformation] | None,
     ) -> list[Result] | None:
         return imputed_with_reference_inplace(
             list(
@@ -191,10 +172,10 @@ class Estimator:
     def __predict_safe(
         self,
         ceiling_pose: pose.Result | None,
-        window_left_gaze: gaze.Result | None,
-        window_right_gaze: gaze.Result | None,
-        window_left_to_ceiling: ProjectiveTransformation | None,
-        window_right_to_ceiling: ProjectiveTransformation | None,
+        window_left_gaze: gaze.Result3d | None,
+        window_right_gaze: gaze.Result3d | None,
+        window_left_to_ceiling: Transformation | None,
+        window_right_to_ceiling: Transformation | None,
     ) -> Result | None:
         if ceiling_pose is None:
             return None

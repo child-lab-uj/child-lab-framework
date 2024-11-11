@@ -6,6 +6,7 @@ from .pose import (
     Estimator,
     Keypoints,
     Result,
+    Result3d,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     'Estimator',
     'Keypoints',
     'Result',
+    'Result3d',
 ]
