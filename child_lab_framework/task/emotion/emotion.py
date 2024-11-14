@@ -30,7 +30,7 @@ class Estimator:
     def __init__(self, executor: ThreadPoolExecutor) -> None:
         self.executor = executor
 
-    def predict(self, frame: Frame, faces: face.Result) -> Result:
+    def __predict(self, frame: Frame, faces: face.Result) -> Result:
         face_emotions = []
         boxes = []
         frame_height, frame_width, _ = frame.shape
@@ -53,7 +53,7 @@ class Estimator:
     def __predict_safe(self, frame: Frame, faces: face.Result | None) -> Result:
         if faces is None:
             return Result([], [])
-        return self.predict(frame, faces)
+        return self.__predict(frame, faces)
 
     def predict_batch(
         self,
@@ -61,7 +61,7 @@ class Estimator:
         faces: list[face.Result | None],
     ) -> list[Result] | None:
         return imputed_with_reference_inplace(
-            list(starmap(self.predict, zip(frames, faces)))
+            list(starmap(self.__predict, zip(frames, faces)))
         )
 
     async def stream(
