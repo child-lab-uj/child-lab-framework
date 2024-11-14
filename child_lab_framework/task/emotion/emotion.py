@@ -1,11 +1,10 @@
 import asyncio
-from typing import Dict, List
 from deepface import DeepFace
 from concurrent.futures import ThreadPoolExecutor
 from itertools import repeat, starmap
 
-from child_lab_framework.core.sequence import imputed_with_reference_inplace
-from child_lab_framework.task import face
+from ...task import face
+from ...core.sequence import imputed_with_reference_inplace
 from ...core.video import Frame
 from ...typing.stream import Fiber
 from ...typing.array import FloatArray2
@@ -31,7 +30,7 @@ class Estimator:
     def __init__(self, executor: ThreadPoolExecutor) -> None:
         self.executor = executor
 
-    def predict(self, frame: Frame, faces: face.Result | None) -> Result:
+    def predict(self, frame: Frame, faces: face.Result) -> Result:
         face_emotions = []
         boxes = []
         frame_height, frame_width, _ = frame.shape
@@ -45,11 +44,16 @@ class Estimator:
             analysis = DeepFace.analyze(
                 cropped_frame, actions=['emotion'], enforce_detection=False
             )
-            emotion = score_emotions(analysis[0])
+            emotion = self.__score(analysis[0])
             face_emotions.append(emotion)
             boxes.append(face_box)
 
         return Result(face_emotions, boxes)
+    
+    def __predict_safe(self, frame: Frame, faces: face.Result | None) -> Result:
+        if faces is None:
+            return Result([], [])
+        return self.predict(frame, faces)
 
     def predict_batch(
         self,
@@ -62,7 +66,7 @@ class Estimator:
 
     async def stream(
         self,
-    ) -> Fiber[list[Frame | None] | None, list[Result | None] | None]:
+    ) -> Fiber[list[Input] | None, list[Result | None] | None]:
         loop = asyncio.get_running_loop()
         executor = self.executor
 
@@ -87,20 +91,19 @@ class Estimator:
                 case _:
                     results = None
 
+    def __score(emotions: list[dict[str, float]]) -> list[float]:
+        # Most of the time, "angry" and "fear" are similar to "neutral" in the reality
+        scores = {
+            'angry': -0.05,
+            'disgust': 0,
+            'fear': -0.07,
+            'happy': 1,
+            'sad': -1,
+            'surprise': 0,
+            'neutral': 0,
+        }
+        val = 0
+        for emotion, score in scores.items():
+            val += emotions['emotion'][emotion] * score
 
-def score_emotions(emotions: List[Dict[str, float]]) -> float:
-    # Most of the time, "angry" and "fear" are similar to "neutral" in the reality
-    scores = {
-        'angry': -0.05,
-        'disgust': 0,
-        'fear': -0.07,
-        'happy': 1,
-        'sad': -1,
-        'surprise': 0,
-        'neutral': 0,
-    }
-    val = 0
-    for emotion, score in scores.items():
-        val += emotions['emotion'][emotion] * score
-
-    return val
+        return val
