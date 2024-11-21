@@ -4,7 +4,9 @@ from dataclasses import dataclass
 from itertools import starmap
 
 import cv2
+import kornia
 import numpy as np
+import torch
 
 from ...core.sequence import imputed_with_reference_inplace
 from ...core.stream import InvalidArgumentException
@@ -14,7 +16,6 @@ from ...typing.stream import Fiber
 from ...typing.video import Frame
 from .. import pose, visualization
 from ..pose.keypoint import YoloKeypoint
-from . import mtcnn
 
 type Input = tuple[list[Frame] | None, list[pose.Result | None] | None]
 
@@ -38,7 +39,7 @@ class Result:
             thickness = configuration.face_bounding_box_thickness
 
             box: IntArray1
-            for box in self.boxes:
+            for box in self.boxes.astype(np.int32):
                 x1, y1, x2, y2 = box
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
 
@@ -49,105 +50,64 @@ class Result:
 
 
 class Estimator:
-    threshold: float
-    detector: mtcnn.Detector
+    executor: ThreadPoolExecutor
+    device: torch.device
 
     input: Properties
 
-    executor: ThreadPoolExecutor
+    detector: kornia.contrib.FaceDetector
 
     def __init__(
-        self, executor: ThreadPoolExecutor, *, input: Properties, threshold: float
+        self,
+        executor: ThreadPoolExecutor,
+        device: torch.device,
+        *,
+        input: Properties,
+        confidence_threshold: float,
+        suppression_threshold: float,
     ) -> None:
         self.executor = executor
-        self.threshold = threshold
+        self.device = device
+
         self.input = input
-        self.detector = mtcnn.Detector(threshold=threshold)
 
+        self.detector = kornia.contrib.FaceDetector(
+            confidence_threshold=confidence_threshold,
+            nms_threshold=suppression_threshold,
+        ).to(device)
+
+    @torch.no_grad
     def predict(self, frame: Frame, poses: pose.Result) -> Result | None:
-        detector = self.detector
-        threshold = self.threshold
+        detections = self.detector.forward(
+            torch.tensor(frame)
+            .to(self.device, torch.float32)
+            .permute(0, 2, 1)
+            .unsqueeze(0)
+        )
 
-        face_boxes: list[FloatArray1 | None] = []
-        confidences: list[list[float] | None] = []
-
-        box: FloatArray1
-        keypoints: FloatArray2
-        i: int
-        face_box: FloatArray1
-        face_box_x1: float
-        face_box_y1: float
-        face_box_width: float
-        face_box_height: float
-        face_box_x2: float
-        face_box_y2: float
-        nose_x: float
-        nose_y: float
-
-        for box, keypoints in zip(poses.boxes, poses.keypoints):
-            box_x1, box_y1, box_x2, box_y2 = box.astype(np.int32)[:4]
-            actor_cropped = frame[box_y1:box_y2, box_x1:box_x2, ...]
-
-            match detector.predict(actor_cropped):
-                case mtcnn.Result(boxes, confs, _) if np.max(confs) >= threshold:
-                    for i in np.flip(np.argsort(confs)):
-                        face_box = boxes[i]
-                        face_box_x1, face_box_y1, face_box_width, face_box_height = (
-                            face_box
-                        )
-                        face_box_x2 = face_box_x1 + face_box_width
-                        face_box_y2 = face_box_y1 + face_box_height
-
-                        nose_x, nose_y, *_ = keypoints[YoloKeypoint.NOSE]
-                        nose_x -= box_x1
-                        nose_y -= box_y1
-
-                        if (
-                            nose_x < face_box_x1
-                            or face_box_x2 < nose_x
-                            or nose_y < face_box_y1
-                            or face_box_y2 < nose_y
-                        ):
-                            continue
-
-                        break
-                    else:
-                        continue
-
-                    face_box[0] += box_x1
-                    face_box[1] += box_y1
-                    face_box[2] = face_box_x2 + box_x1
-                    face_box[3] = face_box_y2 + box_y1
-
-                    face_boxes.append(face_box)
-
-                    confidence = confs[i]
-                    confidences.append(confidence)
-
-                case _:
-                    face_boxes.append(None)
-                    confidences.append(None)
-
-        if len(face_boxes) == 0 or len(confidences) == 0:
+        if len(detections) == 0:
             return None
 
-        match (
-            imputed_with_reference_inplace(face_boxes),
-            imputed_with_reference_inplace(confidences),
-        ):
-            case list(face_boxes_imputed), list(confidences_imputed):
-                return Result(np.stack(face_boxes_imputed), np.stack(confidences_imputed))
+        detection = detections[0]  # There will always be one result for one frame
 
-            case _:
-                return None
+        return self.__match_faces_with_actors(detection, poses)
 
+    @torch.no_grad
     def predict_batch(
         self,
         frames: list[Frame],
         poses: list[pose.Result],
     ) -> list[Result] | None:
+        frame_batch = (
+            torch.stack([torch.tensor(frame) for frame in frames])
+            .permute(0, 3, 1, 2)
+            .to(self.device, torch.float32)
+        )
+
+        predictions = self.detector.forward(frame_batch)
+
         return imputed_with_reference_inplace(
-            list(starmap(self.predict, zip(frames, poses)))
+            list(starmap(self.__match_faces_with_actors, zip(predictions, poses)))
         )
 
     def __predict_safe(self, frame: Frame, poses: pose.Result | None) -> Result | None:
@@ -155,6 +115,62 @@ class Estimator:
             return None
 
         return self.predict(frame, poses)
+
+    def __match_faces_with_actors(
+        self,
+        faces: torch.Tensor,
+        poses: pose.Result,
+    ) -> Result | None:
+        device = self.device
+
+        descending_confidence = faces[:, 14].argsort(descending=True)
+        faces = faces[descending_confidence, :]
+
+        n_actors = poses.n_detections
+        n_faces = faces.shape[0]
+
+        if n_faces == 0:
+            return None
+
+        noses = (
+            torch.tensor(poses.keypoints[:, YoloKeypoint.NOSE, :2])
+            .permute(1, 0)
+            .unsqueeze(-1)
+            .expand(2, n_actors, n_faces)
+            .to(device)
+        )
+
+        nose_x, nose_y = noses.unbind(0)
+
+        x_lower = faces[..., 0] <= nose_x
+        y_lower = faces[..., 1] <= nose_y
+        x_upper = faces[..., 2] >= nose_x
+        y_upper = faces[..., 3] >= nose_y
+
+        mask = x_lower & x_upper & y_lower & y_upper
+
+        success, where = mask.max(1)
+
+        if not success.any():
+            return None
+
+        actor_indices = torch.arange(n_actors, dtype=torch.int32).to(device)
+        face_indices = torch.arange(n_faces, dtype=torch.int32).to(device)
+
+        which_actors = actor_indices[success]
+        which_faces = face_indices[where[success]]
+
+        boxes_and_confidences = torch.zeros((n_actors, 5), dtype=torch.float32).to(device)
+
+        boxes_and_confidences[which_actors, :4] = faces[which_faces, :4]
+        boxes_and_confidences[which_actors, 4] = faces[which_faces, 14]
+
+        boxes_and_confidences = boxes_and_confidences.cpu().numpy()
+
+        result_boxes = boxes_and_confidences[..., :4]
+        result_confidences = boxes_and_confidences[..., 4]
+
+        return Result(result_boxes, result_confidences)
 
     async def stream(self) -> Fiber[Input | None, list[Result | None] | None]:
         executor = self.executor

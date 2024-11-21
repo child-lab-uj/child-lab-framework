@@ -66,8 +66,12 @@ def main(
 
     face_estimator = face.Estimator(
         executor,
+        # A workaround to use the model efficiently on both desktop and server.
+        # TODO: remove this as soon as it's possible to specify device per component via CLI/config file.
+        device if device == torch.device('cuda') else torch.device('cpu'),
         input=ceiling_reader.properties,
-        threshold=0.1,
+        confidence_threshold=0.5,
+        suppression_threshold=0.1,
     )
 
     window_left_gaze_estimator = gaze.Estimator(
