@@ -28,6 +28,7 @@ mini-face = "^0.1.3"
 depth-pro = { git = "https://github.com/child-lab-uj/depth-pro.git" }
 click = "^8.1.7"
 more-itertools = "^10.5.0"
+kornia = "^0.7.4"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"
