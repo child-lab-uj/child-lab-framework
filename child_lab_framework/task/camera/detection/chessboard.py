@@ -3,10 +3,10 @@ from dataclasses import dataclass
 import cv2 as opencv
 import numpy as np
 
-from ...task import visualization
-from ...typing.array import FloatArray2, FloatArray3
-from ...typing.video import Frame
-from .. import video
+from ....core import video
+from ....typing.array import FloatArray2, FloatArray3
+from ....typing.video import Frame
+from ... import visualization
 
 
 @dataclass(frozen=True)

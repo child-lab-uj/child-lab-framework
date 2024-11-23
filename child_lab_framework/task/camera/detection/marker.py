@@ -6,12 +6,12 @@ import cv2 as opencv
 import cv2.aruco as opencv_aruco
 import numpy as np
 
-from ...task import visualization
-from ...typing.array import FloatArray2, FloatArray3, IntArray1
-from ...typing.video import Frame
-from .. import serialization, transformation
-from ..calibration import Calibration
-from ..video import Properties
+from ....core import serialization, transformation
+from ....core.calibration import Calibration
+from ....core.video import Properties
+from ....typing.array import FloatArray2, FloatArray3, IntArray1
+from ....typing.video import Frame
+from ... import visualization
 
 
 # Can't stand that awful OpenCV's constants ported directly from C++; enum is better
