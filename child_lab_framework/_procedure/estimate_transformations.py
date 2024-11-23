@@ -7,9 +7,9 @@ from tqdm import tqdm
 
 from ..core import transformation
 from ..core.calibration import Calibration
-from ..core.detection import marker
 from ..core.video import Format, Input, Reader, Writer
 from ..task import visualization
+from ..task.camera.detection import marker
 
 MARKER_PREFIX = 'marker'
 

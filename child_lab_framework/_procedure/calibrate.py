@@ -5,8 +5,8 @@ import numpy as np
 from tqdm import trange
 
 from ..core.calibration import Calibration
-from ..core.detection import chessboard
 from ..core.video import Format, Input, Reader, Writer
+from ..task.camera.detection import chessboard
 from ..task.visualization import Configuration, Visualizer
 from ..typing.array import FloatArray2, FloatArray3
 

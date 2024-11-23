@@ -1,11 +1,12 @@
 import time
+import typing
 from collections.abc import Callable, Iterable
 
 import networkx as nx
 
-from ...logging.logger import Logger
-from ...typing.flow import Component
-from ...typing.stream import Fiber
+from ..logging.logger import Logger
+from ..typing.flow import Component
+from ..typing.stream import Fiber
 from .compilation import compiled_flow
 
 type ComponentDefinition = (
@@ -17,8 +18,8 @@ type ComponentDefinition = (
 
 class Machinery:
     components: dict[str, Component]
-    dependencies: nx.DiGraph
-    flow: nx.DiGraph
+    dependencies: 'nx.DiGraph[str]'
+    flow: 'nx.DiGraph[str]'
     flow_controller: Fiber[None, bool]
 
     def __init__(
@@ -31,7 +32,7 @@ class Machinery:
         self.flow_controller = self.__compile()(self.components)
 
     def __build_dependencies(self, definitions: list[ComponentDefinition]) -> nx.DiGraph:
-        dependencies: dict[str, Iterable[str]] = dict()
+        dependencies: dict[str, tuple[str, ...]] = dict()
 
         for definition in definitions:
             match definition:
@@ -41,7 +42,8 @@ class Machinery:
                 case name, _, tuple(deps):
                     dependencies[name] = deps
 
-        graph = nx.DiGraph(dependencies)
+        # I don't know why is this upcast necessary ;v
+        graph = nx.DiGraph(typing.cast(dict[str, Iterable[str]], dependencies))
         assert nx.is_directed_acyclic_graph(graph)  # TODO: Throw a proper exception
 
         return graph
