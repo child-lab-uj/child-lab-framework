@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import torch
 
-from ..core.flow import Machinery
+from .._parallel_execution import Machinery
 from ..core.video import Format, Input, Reader, Writer
 from ..task import face, gaze, pose
 from ..task.visualization import Visualizer
