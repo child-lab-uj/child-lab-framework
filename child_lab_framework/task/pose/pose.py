@@ -2,7 +2,9 @@ import asyncio
 import typing
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from enum import IntEnum, auto
+from functools import cached_property
 
 import cv2
 import numpy as np
@@ -12,8 +14,10 @@ from torchvision.transforms import Compose, Resize
 from torchvision.transforms.transforms import InterpolationMode
 from ultralytics.engine import results as yolo
 
+from ...core.calibration import Calibration
 from ...core.geometry import area_broadcast
 from ...core.sequence import imputed_with_reference_inplace
+from ...core.transformation import Transformation
 from ...core.video import Frame, Properties
 from ...typing.array import FloatArray1, FloatArray2, FloatArray3, IntArray1
 from ...typing.stream import Fiber
@@ -34,70 +38,94 @@ class Actor(IntEnum):
     CHILD = auto()
 
 
+@dataclass(frozen=True)
 class Result:
     n_detections: int
     boxes: BatchedBoxes
-    keypoints: BatchedKeypoints
+    keypoints: BatchedKeypoints  # TODO: separate confidences from spatial coordinates
     actors: list[Actor]
 
-    __centres: FloatArray2 | None = None
-    __depersonificated_keypoints: FloatArray2 | None = None
-
     # NOTE heuristic: sitting actors preserve lexicographic order of bounding boxes
-    @staticmethod
-    def __ordered(
-        boxes: BatchedBoxes, keypoints: BatchedKeypoints, actors: list[Actor]
-    ) -> tuple[BatchedBoxes, BatchedKeypoints, list[Actor]]:
+    @classmethod
+    def ordered(
+        cls,
+        n_detections: int,
+        boxes: BatchedBoxes,
+        keypoints: BatchedKeypoints,
+        actors: list[Actor],
+    ) -> typing.Self:
         order = np.lexsort(np.flipud(boxes.T))
 
         boxes = boxes[order]
         keypoints = keypoints[order]
         actors = [actors[i] for i in order]
 
-        return boxes, keypoints, actors
-
-    def __init__(
-        self,
-        n_detections: int,
-        boxes: BatchedBoxes,
-        keypoints: BatchedKeypoints,
-        actors: list[Actor],
-    ) -> None:
-        self.n_detections = n_detections
-        self.boxes, self.keypoints, self.actors = Result.__ordered(
-            boxes,
-            keypoints,
-            actors,
-        )
+        return cls(n_detections, boxes, keypoints, actors)
 
     def iter(self) -> Iterable[tuple[Actor, Box, Keypoints]]:
         return zip(self.actors, self.boxes, self.keypoints)
 
-    @property
+    @cached_property
     def centres(self) -> FloatArray2:
-        if self.__centres is not None:
-            return self.__centres
-
         keypoints = self.keypoints.view()
 
-        centres = (
+        return (
             keypoints[:, YoloKeypoint.RIGHT_SHOULDER, :2]
             + keypoints[:, YoloKeypoint.LEFT_SHOULDER, :2]
         ) / 2.0
 
-        self.__centres = centres
+    @cached_property
+    def flat_points_with_confidence(self) -> FloatArray2:
+        return np.concatenate(self.keypoints)
 
-        return centres
+    # TODO: unproject bounding boxes properly (Issue #62)
+    def unproject(self, calibration: Calibration, depth: FloatArray2) -> 'Result3d':
+        height, width = depth.shape
+        n_actors, n_keypoints, _ = self.keypoints.shape
 
-    @property
-    def depersonificated_keypoints(self) -> FloatArray2:
-        if self.__depersonificated_keypoints is not None:
-            return self.__depersonificated_keypoints
+        keypoints = self.flat_points_with_confidence[:, :2].copy()
+        confidence = self.flat_points_with_confidence[:, 2, np.newaxis].copy()
+        keypoints_truncated = keypoints.astype(np.int32)
 
-        stacked_keypoints = np.concatenate(self.keypoints)
-        self.__depersonificated_keypoints = stacked_keypoints
+        keypoints_depth = depth[
+            np.clip(
+                keypoints_truncated[:, 1],
+                a_min=0,
+                a_max=height - 1,
+                dtype=np.int32,
+            ),
+            np.clip(
+                keypoints_truncated[:, 0],
+                a_min=0,
+                a_max=width - 1,
+                dtype=np.int32,
+            ),
+        ].reshape(-1, 1)
 
-        return stacked_keypoints
+        cx, cy = calibration.optical_center
+        fx, fy = calibration.focal_length
+
+        keypoints[:, 0] -= cx
+        keypoints[:, 1] -= cy
+        keypoints *= keypoints_depth
+        keypoints[:, 0] /= fx
+        keypoints[:, 1] /= fy
+
+        unprojected_keypoints = np.concatenate(
+            (
+                keypoints,
+                keypoints_depth,
+                confidence,
+            ),
+            axis=1,
+        ).reshape(n_actors, n_keypoints, -1)
+
+        return Result3d(
+            self.n_detections,
+            self.boxes,
+            unprojected_keypoints,
+            self.actors,
+        )
 
     def visualize(
         self,
@@ -159,6 +187,59 @@ class Result:
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)  # type: ignore
 
         return frame
+
+
+@dataclass(frozen=True)
+class Result3d:
+    n_detections: int
+    boxes: FloatArray2
+    keypoints: FloatArray3
+    actors: list[Actor]
+
+    # Boilerplate to match the `Projectable` protocol and cache the value at the same time.
+    @property
+    def flat_points(self) -> FloatArray2:
+        return self.__flat_points
+
+    @cached_property
+    def __flat_points(self) -> FloatArray2:
+        return np.concatenate(self.keypoints[..., :-1])
+
+    # TODO: project bounding boxes properly (Issue #62)
+    def project(self, calibration: Calibration) -> Result:
+        cx, cy = calibration.optical_center
+        fx, fy = calibration.focal_length
+
+        projected_keypoints = self.keypoints.copy()
+        projected_keypoints[..., 0] *= fx
+        projected_keypoints[..., 1] *= fy
+        projected_keypoints[..., :2] /= projected_keypoints[..., 2, np.newaxis]
+        projected_keypoints[..., 0] += cx
+        projected_keypoints[..., 1] += cy
+
+        return Result(
+            self.n_detections,
+            self.boxes,
+            projected_keypoints[..., [0, 1, 3]],
+            self.actors,
+        )
+
+    # TODO: reorder actors if needed (Issue #63),
+    # transform bounding boxes properly (Issue #62)
+    def transform(self, transformation: Transformation) -> 'Result3d':
+        confidence = self.keypoints[..., -1, np.newaxis]
+        transformed_keypoints = transformation.transform(self.keypoints[..., :-1])
+        transformed_keypoint_with_confidence = np.concatenate(
+            (transformed_keypoints, confidence),
+            axis=2,
+        )
+
+        return Result3d(
+            self.n_detections,
+            self.boxes,
+            transformed_keypoint_with_confidence,
+            self.actors,
+        )
 
 
 class Estimator:
@@ -270,7 +351,7 @@ class Estimator:
 
         del boxes, keypoints
 
-        return Result(n_detections, boxes_cpu, keypoints_cpu, actors)
+        return Result.ordered(n_detections, boxes_cpu, keypoints_cpu, actors)
 
     async def stream(self) -> Fiber[list[Frame] | None, list[Result] | None]:
         executor = self.executor

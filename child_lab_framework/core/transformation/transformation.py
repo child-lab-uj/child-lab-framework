@@ -24,7 +24,8 @@ class Transformation(ABC):
         if len(input.shape) == 1:
             return self.rotation @ input + self.translation  # type: ignore
 
-        return np.einsum('...j,ij->...i', input, self.rotation) + self.translation
+        translation = np.squeeze(self.translation)  # TODO: get rid of this operation
+        return np.einsum('...j,ij->...i', input, self.rotation) + translation
 
     @property
     @abstractmethod

@@ -19,6 +19,7 @@ class Format(Enum):
 
 @dataclass(frozen=True, repr=False)
 class Properties:
+    name: str
     length: int
     height: int
     width: int
@@ -93,6 +94,7 @@ class Reader:
         )
 
         self.__input_properties = Properties(
+            input.name,
             input_length,
             input_height,
             input_width,
@@ -102,6 +104,7 @@ class Reader:
 
         # Output properties with maybe mimicked parameters
         self.properties = Properties(
+            input.name,
             input_length * self.__frame_repetitions,
             mimicked_height,
             mimicked_width,

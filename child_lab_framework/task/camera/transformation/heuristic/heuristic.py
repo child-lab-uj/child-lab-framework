@@ -2,15 +2,14 @@ import asyncio
 from concurrent.futures.thread import ThreadPoolExecutor
 from itertools import starmap
 
-import cv2
-
 from .....core.sequence import imputed_with_reference_inplace
-from .....core.transformation import ProjectiveTransformation
+from .....core.transformation import Buffer, Transformation
 from .....core.video import Properties
-from .....typing.array import FloatArray1, FloatArray2
+from .....logging import Logger
+from .....typing.array import FloatArray2
 from .....typing.stream import Fiber
 from .... import pose
-from . import projection
+from . import box_kabsch, kabsch, projection
 
 type Input = tuple[
     list[pose.Result | None] | None,
@@ -21,58 +20,101 @@ type Input = tuple[
 
 
 class Estimator:
-    from_view: Properties
+    executor: ThreadPoolExecutor
+    transformation_buffer: Buffer[str]
 
+    from_view: Properties
     to_view: Properties
-    to_view_intrinsics: FloatArray2
-    to_view_distortion: FloatArray1
 
     keypoint_threshold: float
-
-    executor: ThreadPoolExecutor
 
     def __init__(
         self,
         executor: ThreadPoolExecutor,
+        transformation_buffer: Buffer[str],
         from_view: Properties,
         to_view: Properties,
         *,
         keypoint_threshold: float = 0.25,
     ) -> None:
+        self.executor = executor
+
+        self.transformation_buffer = transformation_buffer
+        transformation_buffer.add_frame_of_reference(from_view.name)
+        transformation_buffer.add_frame_of_reference(to_view.name)
+
         self.from_view = from_view
         self.to_view = to_view
-        self.to_view_intrinsics = to_view.calibration.intrinsics[:3, :3]
-        self.to_view_distortion = to_view.calibration.distortion
 
         self.keypoint_threshold = keypoint_threshold
 
-        self.executor = executor
-
+    # TODO: rebuild transformation estimation API - get rid of `heuristic.Estimator` facade and implement appropriate estimators for concrete methods.
     def predict(
         self,
         from_pose: pose.Result,
         to_pose: pose.Result,
         from_depth: FloatArray2,
         to_depth: FloatArray2,
-    ) -> ProjectiveTransformation | None:
-        match projection.estimate(
-            from_pose,
-            to_pose,
-            from_depth,
-            to_depth,
-            self.to_view_intrinsics,
-            self.to_view_distortion,
-            self.keypoint_threshold,
-        ):
-            case rotation, translation:
-                return ProjectiveTransformation(
-                    cv2.Rodrigues(rotation)[0],  # type: ignore
-                    translation,
-                    self.to_view.calibration,
-                )
+    ) -> Transformation | None:
+        # TODO: remove this workaround when actors are recognized and matched between cameras
+        if len(from_pose.actors) != len(to_pose.actors):
+            return None
 
-            case None:
-                return None
+        from_calibration = self.from_view.calibration
+        to_calibration = self.to_view.calibration
+
+        from_pose_3d = from_pose.unproject(from_calibration, from_depth)
+        to_pose_3d = to_pose.unproject(to_calibration, to_depth)
+
+        from_name = self.from_view.name
+        to_name = self.to_view.name
+
+        buffer = self.transformation_buffer
+
+        transformation: Transformation | None = None
+        for transformation in [
+            projection.estimate(
+                from_pose,
+                from_pose_3d,
+                to_pose,
+                to_pose_3d,
+                from_calibration,
+                to_calibration,
+                self.keypoint_threshold,
+            ),
+            kabsch.estimate(
+                from_pose,
+                from_pose_3d,
+                to_pose,
+                to_pose_3d,
+                self.keypoint_threshold,
+            ),
+            box_kabsch.estimate(
+                from_pose,
+                to_pose,
+                from_depth,
+                to_depth,
+                from_calibration,
+                to_calibration,
+                self.keypoint_threshold,
+            ),
+        ]:
+            if transformation is None:
+                continue
+
+            buffer.update_transformation_if_better(
+                from_name,
+                to_name,
+                from_pose_3d,
+                to_pose_3d,
+                transformation,
+            )
+
+        error = buffer.reprojection_error(from_name, to_name, from_pose_3d, to_pose_3d)
+
+        Logger.info(f'Reprojection error from {from_name} to {to_name}: {error:.2e}')
+
+        return buffer[from_name, to_name]
 
     def predict_batch(
         self,
@@ -80,7 +122,7 @@ class Estimator:
         to_poses: list[pose.Result],
         from_depths: list[FloatArray2],
         to_depths: list[FloatArray2],
-    ) -> list[ProjectiveTransformation] | None:
+    ) -> list[Transformation] | None:
         return imputed_with_reference_inplace(
             list(
                 starmap(
@@ -101,7 +143,7 @@ class Estimator:
         to_pose: pose.Result | None,
         from_depth: FloatArray2,
         to_depth: FloatArray2,
-    ) -> ProjectiveTransformation | None:
+    ) -> Transformation | None:
         if from_pose is None or to_pose is None:
             return None
 
@@ -109,11 +151,11 @@ class Estimator:
 
     async def stream(
         self,
-    ) -> Fiber[Input | None, list[ProjectiveTransformation | None] | None]:
+    ) -> Fiber[Input | None, list[Transformation | None] | None]:
         loop = asyncio.get_running_loop()
         executor = self.executor
 
-        results: list[ProjectiveTransformation | None] | None = None
+        results: list[Transformation | None] | None = None
 
         while True:
             match (yield results):
