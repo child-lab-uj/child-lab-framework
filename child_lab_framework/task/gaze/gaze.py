@@ -11,13 +11,13 @@ import numpy as np
 
 from ...core.algebra import normalized_3d
 from ...core.calibration import Calibration
-from ...core.sequence import (
-    imputed_with_reference_inplace,
-    imputed_with_zeros_reference_inplace,
-)
 from ...core.stream import InvalidArgumentException
 from ...core.transformation import Transformation
 from ...core.video import Frame, Properties
+from ...postprocessing.imputation import (
+    imputed_with_closest_known_reference,
+    imputed_with_zeros_reference,
+)
 from ...typing.array import FloatArray2, FloatArray3, IntArray1
 from ...typing.stream import Fiber
 from ...util import MODELS_DIR as MODELS_ROOT
@@ -187,8 +187,8 @@ class Estimator:
             directions.append(detection.directions)  # type: ignore
 
         match (
-            imputed_with_zeros_reference_inplace(eyes),
-            imputed_with_zeros_reference_inplace(directions),
+            imputed_with_zeros_reference(eyes),
+            imputed_with_zeros_reference(directions),
         ):
             case list(eyes_imputed), list(directions_imputed):
                 return Result3d(
@@ -204,7 +204,7 @@ class Estimator:
         frames: list[Frame],
         faces: list[face.Result],
     ) -> list[Result3d] | None:
-        return imputed_with_reference_inplace(
+        return imputed_with_closest_known_reference(
             list(starmap(self.predict, zip(frames, faces)))
         )
 

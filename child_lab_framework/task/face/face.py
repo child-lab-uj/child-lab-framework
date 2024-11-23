@@ -8,9 +8,9 @@ import kornia
 import numpy as np
 import torch
 
-from ...core.sequence import imputed_with_reference_inplace
 from ...core.stream import InvalidArgumentException
 from ...core.video import Properties
+from ...postprocessing.imputation import imputed_with_closest_known_reference
 from ...typing.array import FloatArray1, FloatArray2, IntArray1
 from ...typing.stream import Fiber
 from ...typing.video import Frame
@@ -20,7 +20,7 @@ from ..pose.keypoint import YoloKeypoint
 type Input = tuple[list[Frame] | None, list[pose.Result | None] | None]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Result:
     boxes: FloatArray2
     confidences: FloatArray1
@@ -106,7 +106,7 @@ class Estimator:
 
         predictions = self.detector.forward(frame_batch)
 
-        return imputed_with_reference_inplace(
+        return imputed_with_closest_known_reference(
             list(starmap(self.__match_faces_with_actors, zip(predictions, poses)))
         )
 

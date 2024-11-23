@@ -16,9 +16,11 @@ from ultralytics.engine import results as yolo
 
 from ...core.calibration import Calibration
 from ...core.geometry import area_broadcast
-from ...core.sequence import imputed_with_reference_inplace
 from ...core.transformation import Transformation
 from ...core.video import Frame, Properties
+from ...postprocessing.imputation import (
+    imputed_with_closest_known_reference,
+)
 from ...typing.array import FloatArray1, FloatArray2, FloatArray3, IntArray1
 from ...typing.stream import Fiber
 from ...util import MODELS_DIR
@@ -314,7 +316,7 @@ class Estimator:
             frame_batch, stream=False, verbose=False, device=device
         )
 
-        return imputed_with_reference_inplace(
+        return imputed_with_closest_known_reference(
             [self.__interpret(detection) for detection in detections]
         )
 
@@ -383,7 +385,7 @@ class Estimator:
                         ),
                     )
 
-                    results = imputed_with_reference_inplace(
+                    results = imputed_with_closest_known_reference(
                         [self.__interpret(detection) for detection in detections]
                     )
 

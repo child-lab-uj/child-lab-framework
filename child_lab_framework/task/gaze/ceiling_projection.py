@@ -8,11 +8,11 @@ import cv2
 import numpy as np
 
 from ...core import transformation
-from ...core.sequence import imputed_with_reference_inplace
 from ...core.stream import InvalidArgumentException
 from ...core.transformation import Transformation
 from ...core.video import Properties
 from ...logging import Logger
+from ...postprocessing.imputation import imputed_with_closest_known_reference
 from ...typing.array import BoolArray1, FloatArray1, FloatArray2
 from ...typing.stream import Fiber
 from ...typing.video import Frame
@@ -170,7 +170,7 @@ class Estimator:
         window_left_to_ceiling: list[Transformation] | None,
         window_right_to_ceiling: list[Transformation] | None,
     ) -> list[Result] | None:
-        return imputed_with_reference_inplace(
+        return imputed_with_closest_known_reference(
             list(
                 starmap(
                     self.predict,
