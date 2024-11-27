@@ -9,6 +9,7 @@ import torch
 from .._procedure import calibrate as calibration_procedure
 from .._procedure import demo_sequential
 from .._procedure import estimate_transformations as transformation_procedure
+from ..core import transformation
 from ..core.calibration import Calibration
 from ..core.file import load, save
 from ..core.video import Input
@@ -195,16 +196,26 @@ def estimate_transformations(
     required=False,
     help='Seconds of videos to skip at the beginning',
 )
+@click.option(
+    '--dynamic-transformations',
+    type=bool,
+    is_flag=True,
+    default=False,
+    help='Compute camera transformations on the fly, using heuristic algorithms',
+)
 # @click_trap()
 def process(
     workspace: Path,
     videos: list[Path],
     device: str | None,
     skip: int | None,
+    dynamic_transformations: bool,
 ) -> None:
     video_dir = workspace / 'input'
     calibration_dir = workspace / 'calibration'
     destination = workspace / 'output'
+    transformation_dir = workspace / 'transformation'
+    transformation_buffer_location = transformation_dir / 'buffer.json'
 
     if not workspace.is_dir():
         raise ValueError(f'{workspace} is not valid workspace directory')
@@ -217,6 +228,21 @@ def process(
 
     if not destination.is_dir():
         raise ValueError(f'{destination} is not valid destination directory')
+
+    if not dynamic_transformations and not transformation_buffer_location.is_file():
+        raise ValueError(
+            f"""
+            Computation requires a camera model. Please either:
+                * Provide a buffer with static transformations at {transformation_buffer_location.absolute()}
+                * Use --dynamic-transformation flag to compute them on the fly
+            """
+        )
+
+    transformation_buffer: transformation.Buffer[str] | None = (
+        load(transformation.Buffer, transformation_buffer_location)
+        if transformation_buffer_location.is_file()
+        else None
+    )
 
     device_handle = torch.device(device or 'cpu')
 
@@ -234,7 +260,14 @@ def process(
 
     click.echo(f'Processing {"video" if len(videos) == 1 else "videos"}...')
 
-    demo_sequential.main(inputs, device_handle, destination, skip)  # type: ignore
+    demo_sequential.main(
+        inputs,  # type: ignore
+        device_handle,
+        destination,
+        skip,
+        transformation_buffer,
+        dynamic_transformations,
+    )
 
     click.echo('Done!')
 

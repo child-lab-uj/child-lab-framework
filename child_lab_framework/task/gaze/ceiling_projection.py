@@ -7,6 +7,7 @@ from itertools import repeat, starmap
 import cv2
 import numpy as np
 
+from ...core import transformation
 from ...core.sequence import imputed_with_reference_inplace
 from ...core.stream import InvalidArgumentException
 from ...core.transformation import Transformation
@@ -68,6 +69,8 @@ class Result:
 class Estimator:
     executor: ThreadPoolExecutor
 
+    transformation_buffer: transformation.Buffer[str]
+
     ceiling_properties: Properties
     window_left_properties: Properties
     window_right_properties: Properties
@@ -75,11 +78,13 @@ class Estimator:
     def __init__(
         self,
         executor: ThreadPoolExecutor,
+        transformation_buffer: transformation.Buffer[str],
         ceiling_properties: Properties,
         window_left_properties: Properties,
         window_right_properties: Properties,
     ) -> None:
         self.executor = executor
+        self.transformation_buffer = transformation_buffer
         self.ceiling_properties = ceiling_properties
         self.window_left_properties = window_left_properties
         self.window_right_properties = window_right_properties
@@ -92,6 +97,17 @@ class Estimator:
         window_left_to_ceiling: Transformation | None,
         window_right_to_ceiling: Transformation | None,
     ) -> Result:
+        buffer = self.transformation_buffer
+
+        window_left_name = self.window_left_properties.name
+        window_right_name = self.window_right_properties.name
+
+        if window_left_to_ceiling is None:
+            window_left_to_ceiling = buffer[window_left_name, window_right_name]
+
+        if window_right_to_ceiling is None:
+            window_right_to_ceiling = buffer[window_right_name, window_left_name]
+
         centres, directions = ceiling_baseline.estimate(
             ceiling_pose,
             face_keypoint_threshold=0.4,
