@@ -100,7 +100,7 @@ class Buffer[T: Hashable]:
         )
 
         if self.__compress_paths:
-            self.connections.add_edge(*from_to, transformation=transformation)
+            self.__connections.add_edge(*from_to, transformation=transformation)
 
         self.__frames_of_reference.add(from_to[0])
         self.__frames_of_reference.add(from_to[1])

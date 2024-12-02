@@ -1,10 +1,12 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
+from itertools import repeat
 from pathlib import Path
 
 import torch
 
 from ..core import transformation
+from ..core.file import save
 from ..core.video import Format, Input, Reader, Writer
 from ..logging import Logger
 from ..task import depth, face, gaze, pose
@@ -20,6 +22,8 @@ def main(
     device: torch.device,
     output_directory: Path,
     skip: int | None,
+    transformation_buffer: transformation.Buffer[str] | None,
+    dynamic_transformations: bool,
 ) -> None:
     # ignore exceeded allocation limit on MPS and CUDA - very important!
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
@@ -55,7 +59,7 @@ def main(
 
     depth_estimator = depth.Estimator(executor, device, input=ceiling_properties)
 
-    transformation_buffer: transformation.Buffer[str] = transformation.Buffer()
+    transformation_buffer = transformation_buffer or transformation.Buffer()
 
     window_left_to_ceiling_transformation_estimator = heuristic_transformation.Estimator(
         executor,
@@ -103,6 +107,7 @@ def main(
 
     ceiling_gaze_estimator = gaze.ceiling_projection.Estimator(
         executor,
+        transformation_buffer,
         ceiling_properties,
         window_left_properties,
         window_right_properties,
@@ -228,35 +233,36 @@ def main(
         window_right_depths = [window_right_depth for _ in range(n_frames)]
         Logger.info('Done!')
 
-        Logger.info('Estimating transformations...')
-        window_left_to_ceiling = (
-            window_left_to_ceiling_transformation_estimator.predict_batch(
-                ceiling_poses,
-                window_left_poses,
-                ceiling_depths,
-                window_left_depths,
+        if dynamic_transformations:
+            Logger.info('Estimating transformations...')
+            window_left_to_ceiling = (
+                window_left_to_ceiling_transformation_estimator.predict_batch(
+                    ceiling_poses,
+                    window_left_poses,
+                    ceiling_depths,
+                    window_left_depths,
+                )
+                if ceiling_poses is not None and window_left_poses is not None
+                else None
             )
-            if ceiling_poses is not None and window_left_poses is not None
-            else None
-        )
 
-        window_right_to_ceiling = (
-            window_right_to_ceiling_transformation_estimator.predict_batch(
-                ceiling_poses,
-                window_right_poses,
-                ceiling_depths,
-                window_right_depths,
+            window_right_to_ceiling = (
+                window_right_to_ceiling_transformation_estimator.predict_batch(
+                    ceiling_poses,
+                    window_right_poses,
+                    ceiling_depths,
+                    window_right_depths,
+                )
+                if ceiling_poses is not None and window_right_poses is not None
+                else None
             )
-            if ceiling_poses is not None and window_right_poses is not None
-            else None
-        )
-        Logger.info('Done!')
+            Logger.info('Done!')
 
-        if window_left_to_ceiling is None:
-            Logger.error('window_left_to_ceiling == None')
+            if window_left_to_ceiling is None:
+                Logger.error('window_left_to_ceiling == None')
 
-        if window_right_to_ceiling is None:
-            Logger.error('window_right_to_ceiling == None')
+            if window_right_to_ceiling is None:
+                Logger.error('window_right_to_ceiling == None')
 
         Logger.info('Detecting faces...')
         window_left_faces = (
@@ -300,8 +306,8 @@ def main(
                 ceiling_poses,
                 window_left_gazes,
                 window_right_gazes,
-                window_left_to_ceiling,
-                window_right_to_ceiling,
+                None,
+                None,
             )
             if ceiling_poses is not None
             else None
@@ -315,19 +321,38 @@ def main(
             Logger.error('window_right_gazes == None')
 
         Logger.info('Visualizing results...')
+
+        if not dynamic_transformations:
+            window_left_to_ceiling = repeat(
+                transformation_buffer['window_left', 'ceiling']
+            )
+            window_right_to_ceiling = repeat(
+                transformation_buffer['window_right', 'ceiling']
+            )
+
         ceiling_projection_annotated_frames = ceiling_visualizer.annotate_batch(
             ceiling_frames,
             [
                 p.unproject(window_left_properties.calibration, ceiling_depth)
                 .transform(t.inverse)
                 .project(ceiling_properties.calibration)
-                for p, t in zip(window_left_poses or [], window_left_to_ceiling or [])
+                if t is not None
+                else None
+                for p, t in zip(
+                    window_left_poses or [],
+                    window_left_to_ceiling or [],  # type: ignore  # window_left_to_ceiling identifier always exists at this point
+                )
             ],
             [
                 p.unproject(window_right_properties.calibration, ceiling_depth)
                 .transform(t.inverse)
                 .project(ceiling_properties.calibration)
-                for p, t in zip(window_right_poses or [], window_right_to_ceiling or [])
+                if t is not None
+                else None
+                for p, t in zip(
+                    window_right_poses or [],
+                    window_right_to_ceiling or [],  # type: ignore  # window_right_to_ceiling identifier always exists at this point
+                )
             ],
         )
 
@@ -366,6 +391,8 @@ def main(
         ceiling_writer.write_batch(ceiling_annotated_frames)
         window_left_writer.write_batch(window_left_annotated_frames)
         window_right_writer.write_batch(window_right_annotated_frames)
+
+        save(transformation_buffer, output_directory / 'buffer.json')
         Logger.info('Done!')
 
         Logger.info('Step complete')

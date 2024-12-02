@@ -206,10 +206,11 @@ class ProjectiveTransformation(Transformation):
 
 def _join(rotation: FloatArray2, translation: FloatArray1) -> FloatArray2:
     m = np.zeros((4, 4), dtype=np.float32)
-    m[:3, :3] = translation
-    m[2, :3] = translation
+    m[:3, :3] = rotation
+    m[3, :3] = np.squeeze(translation)
+    m[3, 3] = 1.0
     return m
 
 
 def _split(transformation: FloatArray2) -> tuple[FloatArray2, FloatArray1]:
-    return transformation[:3, :3], transformation[2, :3]
+    return transformation[:3, :3], transformation[3, :3]
