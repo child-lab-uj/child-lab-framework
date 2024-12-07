@@ -17,7 +17,6 @@ from ...core.stream import InvalidArgumentException
 from ...core.transformation import Transformation
 from ...core.video import Frame, Properties
 from ...postprocessing.imputation import (
-    imputed_with_closest_known_reference,
     imputed_with_zeros_reference,
 )
 from ...typing.array import (
@@ -365,10 +364,8 @@ class Estimator:
         self,
         frames: list[Frame],
         faces: list[face.Result],
-    ) -> list[Result3d] | None:
-        return imputed_with_closest_known_reference(
-            list(starmap(self.predict, zip(frames, faces)))
-        )
+    ) -> list[Result3d | None]:
+        return list(starmap(self.predict, zip(frames, faces)))
 
     def __predict_safe(self, frame: Frame, faces: face.Result | None) -> Result3d | None:
         if faces is None:

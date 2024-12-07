@@ -299,7 +299,7 @@ class Estimator:
 
         return self.__interpret(result[0])
 
-    def predict_batch(self, frames: list[Frame]) -> list[Result] | None:
+    def predict_batch(self, frames: list[Frame]) -> list[Result | None]:
         device = self.device
 
         tensor_frames = [
@@ -316,9 +316,7 @@ class Estimator:
             frame_batch, stream=False, verbose=False, device=device
         )
 
-        return imputed_with_closest_known_reference(
-            [self.__interpret(detection) for detection in detections]
-        )
+        return [self.__interpret(detection) for detection in detections]
 
     # TODO: JIT
     def __interpret(self, detections: yolo.Results) -> Result | None:

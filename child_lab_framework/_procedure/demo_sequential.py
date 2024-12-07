@@ -5,6 +5,10 @@ from pathlib import Path
 
 import torch
 
+from child_lab_framework.postprocessing.imputation import (
+    imputed_with_closest_known_reference,
+)
+
 from ..core import transformation
 from ..core.file import save
 from ..core.video import Format, Input, Reader, Writer
@@ -200,9 +204,15 @@ def main(
         n_frames = len(ceiling_frames)
 
         Logger.info('Estimating poses...')
-        ceiling_poses = pose_estimator.predict_batch(ceiling_frames)
-        window_left_poses = pose_estimator.predict_batch(window_left_frames)
-        window_right_poses = pose_estimator.predict_batch(window_right_frames)
+        ceiling_poses = imputed_with_closest_known_reference(
+            pose_estimator.predict_batch(ceiling_frames)
+        )
+        window_left_poses = imputed_with_closest_known_reference(
+            pose_estimator.predict_batch(window_left_frames)
+        )
+        window_right_poses = imputed_with_closest_known_reference(
+            pose_estimator.predict_batch(window_right_frames)
+        )
         Logger.info('Done!')
 
         if ceiling_poses is None:
@@ -236,22 +246,26 @@ def main(
         if dynamic_transformations:
             Logger.info('Estimating transformations...')
             window_left_to_ceiling = (
-                window_left_to_ceiling_transformation_estimator.predict_batch(
-                    ceiling_poses,
-                    window_left_poses,
-                    ceiling_depths,
-                    window_left_depths,
+                imputed_with_closest_known_reference(
+                    window_left_to_ceiling_transformation_estimator.predict_batch(
+                        ceiling_poses,
+                        window_left_poses,
+                        ceiling_depths,
+                        window_left_depths,
+                    )
                 )
                 if ceiling_poses is not None and window_left_poses is not None
                 else None
             )
 
             window_right_to_ceiling = (
-                window_right_to_ceiling_transformation_estimator.predict_batch(
-                    ceiling_poses,
-                    window_right_poses,
-                    ceiling_depths,
-                    window_right_depths,
+                imputed_with_closest_known_reference(
+                    window_right_to_ceiling_transformation_estimator.predict_batch(
+                        ceiling_poses,
+                        window_right_poses,
+                        ceiling_depths,
+                        window_right_depths,
+                    )
                 )
                 if ceiling_poses is not None and window_right_poses is not None
                 else None
@@ -266,13 +280,17 @@ def main(
 
         Logger.info('Detecting faces...')
         window_left_faces = (
-            face_estimator.predict_batch(window_left_frames, window_left_poses)
+            imputed_with_closest_known_reference(
+                face_estimator.predict_batch(window_left_frames, window_left_poses)
+            )
             if window_left_poses is not None
             else None
         )
 
         window_right_faces = (
-            face_estimator.predict_batch(window_right_frames, window_right_poses)
+            imputed_with_closest_known_reference(
+                face_estimator.predict_batch(window_right_frames, window_right_poses)
+            )
             if window_right_poses is not None
             else None
         )
@@ -286,28 +304,34 @@ def main(
 
         Logger.info('Estimating gazes...')
         window_left_gazes = (
-            window_left_gaze_estimator.predict_batch(
-                window_left_frames, window_left_faces
+            imputed_with_closest_known_reference(
+                window_left_gaze_estimator.predict_batch(
+                    window_left_frames, window_left_faces
+                )
             )
             if window_left_faces is not None
             else None
         )
 
         window_right_gazes = (
-            window_right_gaze_estimator.predict_batch(
-                window_right_frames, window_right_faces
+            imputed_with_closest_known_reference(
+                window_right_gaze_estimator.predict_batch(
+                    window_right_frames, window_right_faces
+                )
             )
             if window_right_faces is not None
             else None
         )
 
         ceiling_gazes = (
-            ceiling_gaze_estimator.predict_batch(
-                ceiling_poses,
-                window_left_gazes,
-                window_right_gazes,
-                None,
-                None,
+            imputed_with_closest_known_reference(
+                ceiling_gaze_estimator.predict_batch(
+                    ceiling_poses,
+                    window_left_gazes,
+                    window_right_gazes,
+                    None,
+                    None,
+                )
             )
             if ceiling_poses is not None
             else None

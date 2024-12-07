@@ -10,7 +10,6 @@ import torch
 
 from ...core.stream import InvalidArgumentException
 from ...core.video import Properties
-from ...postprocessing.imputation import imputed_with_closest_known_reference
 from ...typing.array import FloatArray1, FloatArray2, IntArray1
 from ...typing.stream import Fiber
 from ...typing.video import Frame
@@ -97,7 +96,7 @@ class Estimator:
         self,
         frames: list[Frame],
         poses: list[pose.Result],
-    ) -> list[Result] | None:
+    ) -> list[Result | None]:
         frame_batch = (
             torch.stack([torch.tensor(frame) for frame in frames])
             .permute(0, 3, 1, 2)
@@ -106,9 +105,7 @@ class Estimator:
 
         predictions = self.detector.forward(frame_batch)
 
-        return imputed_with_closest_known_reference(
-            list(starmap(self.__match_faces_with_actors, zip(predictions, poses)))
-        )
+        return list(starmap(self.__match_faces_with_actors, zip(predictions, poses)))
 
     def __predict_safe(self, frame: Frame, poses: pose.Result | None) -> Result | None:
         if poses is None:

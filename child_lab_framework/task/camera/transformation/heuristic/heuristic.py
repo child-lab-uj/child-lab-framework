@@ -5,7 +5,6 @@ from itertools import starmap
 from .....core.transformation import Buffer, Transformation
 from .....core.video import Properties
 from .....logging import Logger
-from .....postprocessing.imputation import imputed_with_closest_known_reference
 from .....typing.array import FloatArray2
 from .....typing.stream import Fiber
 from .... import pose
@@ -122,18 +121,16 @@ class Estimator:
         to_poses: list[pose.Result],
         from_depths: list[FloatArray2],
         to_depths: list[FloatArray2],
-    ) -> list[Transformation] | None:
-        return imputed_with_closest_known_reference(
-            list(
-                starmap(
-                    self.predict,
-                    zip(
-                        from_poses,
-                        to_poses,
-                        from_depths,
-                        to_depths,
-                    ),
-                )
+    ) -> list[Transformation | None]:
+        return list(
+            starmap(
+                self.predict,
+                zip(
+                    from_poses,
+                    to_poses,
+                    from_depths,
+                    to_depths,
+                ),
             )
         )
 
