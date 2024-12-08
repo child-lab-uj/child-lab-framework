@@ -66,7 +66,7 @@ class Result:
 
 
 class Estimator:
-    executor: ThreadPoolExecutor
+    executor: ThreadPoolExecutor | None
 
     transformation_buffer: transformation.Buffer[str]
 
@@ -76,11 +76,12 @@ class Estimator:
 
     def __init__(
         self,
-        executor: ThreadPoolExecutor,
         transformation_buffer: transformation.Buffer[str],
         ceiling_properties: Properties,
         window_left_properties: Properties,
         window_right_properties: Properties,
+        *,
+        executor: ThreadPoolExecutor | None = None,
     ) -> None:
         self.executor = executor
         self.transformation_buffer = transformation_buffer
@@ -204,6 +205,11 @@ class Estimator:
     # NOTE: heuristic idea: actors seen from right and left are in reversed lexicographic order
     async def stream(self) -> Fiber[Input | None, list[Result | None] | None]:
         executor = self.executor
+        if executor is None:
+            raise RuntimeError(
+                'Processing in the stream mode requires the Estimator to have an executor. Please pass an "executor" argument to the estimator constructor'
+            )
+
         loop = asyncio.get_running_loop()
 
         results: list[Result | None] | None = None

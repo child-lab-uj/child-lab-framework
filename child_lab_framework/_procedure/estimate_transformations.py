@@ -53,7 +53,6 @@ def run(
     )
 
     visualizer = visualization.Visualizer(
-        None,  # type: ignore
         properties=readers[0].properties,
         configuration=visualization.Configuration(),
     )

@@ -19,7 +19,7 @@ type Input = tuple[
 
 
 class Estimator:
-    executor: ThreadPoolExecutor
+    executor: ThreadPoolExecutor | None
     transformation_buffer: Buffer[str]
 
     from_view: Properties
@@ -29,12 +29,12 @@ class Estimator:
 
     def __init__(
         self,
-        executor: ThreadPoolExecutor,
         transformation_buffer: Buffer[str],
         from_view: Properties,
         to_view: Properties,
         *,
         keypoint_threshold: float = 0.25,
+        executor: ThreadPoolExecutor | None = None,
     ) -> None:
         self.executor = executor
 
@@ -149,8 +149,13 @@ class Estimator:
     async def stream(
         self,
     ) -> Fiber[Input | None, list[Transformation | None] | None]:
-        loop = asyncio.get_running_loop()
         executor = self.executor
+        if executor is None:
+            raise RuntimeError(
+                'Processing in the stream mode requires the Estimator to have an executor. Please pass an "executor" argument to the estimator constructor'
+            )
+
+        loop = asyncio.get_running_loop()
 
         results: list[Transformation | None] | None = None
 

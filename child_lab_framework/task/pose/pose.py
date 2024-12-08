@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from enum import IntEnum, auto
 from functools import cached_property
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -245,9 +246,9 @@ class Result3d:
 
 
 class Estimator:
-    MODEL_PATH: str = str(MODELS_DIR / 'yolov11x-pose.pt')
+    MODEL_PATH: Path = MODELS_DIR / 'yolov11x-pose.pt'
 
-    executor: ThreadPoolExecutor
+    executor: ThreadPoolExecutor | None
     device: torch.device
 
     model: ultralytics.YOLO
@@ -260,12 +261,12 @@ class Estimator:
 
     def __init__(
         self,
-        executor: ThreadPoolExecutor,
         device: torch.device,
         *,
         input: Properties,
         max_detections: int,
         threshold: float,
+        executor: ThreadPoolExecutor | None = None,
     ) -> None:
         self.executor = executor
         self.device = device
@@ -355,6 +356,11 @@ class Estimator:
 
     async def stream(self) -> Fiber[list[Frame] | None, list[Result] | None]:
         executor = self.executor
+        if executor is None:
+            raise RuntimeError(
+                'Processing in the stream mode requires the Estimator to have an executor. Please pass an "executor" argument to the estimator constructor'
+            )
+
         loop = asyncio.get_running_loop()
         device = self.device
 

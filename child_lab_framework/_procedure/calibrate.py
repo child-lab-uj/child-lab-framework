@@ -33,7 +33,6 @@ def run(
     )
 
     visualizer = Visualizer(
-        None,  # type: ignore
         properties=video_properties,
         configuration=Configuration(),
     )

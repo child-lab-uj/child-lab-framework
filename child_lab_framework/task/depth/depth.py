@@ -22,7 +22,7 @@ def to_frame(depth_map: FloatArray2) -> Frame:
 class Estimator:
     MODEL_PATH = MODELS_DIR / 'depth_pro.pt'
 
-    executor: ThreadPoolExecutor
+    executor: ThreadPoolExecutor | None
     device: torch.device
 
     model: DepthPro
@@ -34,7 +34,11 @@ class Estimator:
     from_model: Compose
 
     def __init__(
-        self, executor: ThreadPoolExecutor, device: torch.device, *, input: Properties
+        self,
+        device: torch.device,
+        *,
+        input: Properties,
+        executor: ThreadPoolExecutor | None = None,
     ) -> None:
         self.executor = executor
         self.device = device
@@ -82,8 +86,13 @@ class Estimator:
         return depth
 
     async def stream(self) -> Fiber[list[Frame] | None, list[FloatArray2] | None]:
-        loop = asyncio.get_running_loop()
         executor = self.executor
+        if executor is None:
+            raise RuntimeError(
+                'Processing in the stream mode requires the Estimator to have an executor. Please pass an "executor" argument to the estimator constructor'
+            )
+
+        loop = asyncio.get_running_loop()
 
         results: list[FloatArray2] | None = None
 

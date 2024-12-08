@@ -49,7 +49,7 @@ class Result:
 
 
 class Estimator:
-    executor: ThreadPoolExecutor
+    executor: ThreadPoolExecutor | None
     device: torch.device
 
     input: Properties
@@ -58,12 +58,12 @@ class Estimator:
 
     def __init__(
         self,
-        executor: ThreadPoolExecutor,
         device: torch.device,
         *,
         input: Properties,
         confidence_threshold: float,
         suppression_threshold: float,
+        executor: ThreadPoolExecutor | None = None,
     ) -> None:
         self.executor = executor
         self.device = device
@@ -171,6 +171,11 @@ class Estimator:
 
     async def stream(self) -> Fiber[Input | None, list[Result | None] | None]:
         executor = self.executor
+        if executor is None:
+            raise RuntimeError(
+                'Processing in the stream mode requires the Estimator to have an executor. Please pass an "executor" argument to the estimator constructor'
+            )
+
         loop = asyncio.get_running_loop()
 
         results: list[Result | None] | None = None
