@@ -1,5 +1,4 @@
 import os
-from concurrent.futures import ThreadPoolExecutor
 from itertools import repeat
 from pathlib import Path
 
@@ -33,8 +32,6 @@ def main(
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
     os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
-    executor = ThreadPoolExecutor(max_workers=8)
-
     ceiling, window_left, window_right = inputs
 
     ceiling_reader = Reader(
@@ -61,12 +58,11 @@ def main(
     )
     window_right_properties = window_right_reader.properties
 
-    depth_estimator = depth.Estimator(executor, device, input=ceiling_properties)
+    depth_estimator = depth.Estimator(device, input=ceiling_properties)
 
     transformation_buffer = transformation_buffer or transformation.Buffer()
 
     window_left_to_ceiling_transformation_estimator = heuristic_transformation.Estimator(
-        executor,
         transformation_buffer,
         window_left_properties,
         ceiling_properties,
@@ -74,7 +70,6 @@ def main(
     )
 
     window_right_to_ceiling_transformation_estimator = heuristic_transformation.Estimator(
-        executor,
         transformation_buffer,
         window_right_properties,
         ceiling_properties,
@@ -82,7 +77,6 @@ def main(
     )
 
     pose_estimator = pose.Estimator(
-        executor,
         device,
         input=ceiling_properties,
         max_detections=2,
@@ -90,7 +84,6 @@ def main(
     )
 
     face_estimator = face.Estimator(
-        executor,
         # A workaround to use the model efficiently on both desktop and server.
         # TODO: remove this as soon as it's possible to specify device per component via CLI/config file.
         device if device == torch.device('cuda') else torch.device('cpu'),
@@ -100,17 +93,14 @@ def main(
     )
 
     window_left_gaze_estimator = gaze.Estimator(
-        executor,
         input=window_left_properties,
     )
 
     window_right_gaze_estimator = gaze.Estimator(
-        executor,
         input=window_right_properties,
     )
 
     ceiling_gaze_estimator = gaze.ceiling_projection.Estimator(
-        executor,
         transformation_buffer,
         ceiling_properties,
         window_left_properties,
@@ -121,19 +111,16 @@ def main(
     # social_distance_logger = social_distance.FileLogger('dev/output/distance.csv')
 
     ceiling_visualizer = Visualizer(
-        executor,
         properties=ceiling_properties,
         configuration=VisualizationConfiguration(),
     )
 
     window_left_visualizer = Visualizer(
-        executor,
         properties=window_left_properties,
         configuration=VisualizationConfiguration(),
     )
 
     window_right_visualizer = Visualizer(
-        executor,
         properties=window_right_properties,
         configuration=VisualizationConfiguration(),
     )

@@ -298,16 +298,16 @@ class Estimator:
 
     extractor: mf.gaze.Extractor
 
-    executor: ThreadPoolExecutor
+    executor: ThreadPoolExecutor | None
 
     def __init__(
         self,
-        executor: ThreadPoolExecutor,
         *,
         input: Properties,
         wild: bool = False,
         multiple_views: bool = False,
         limit_angles: bool = False,
+        executor: ThreadPoolExecutor | None = None,
     ) -> None:
         self.executor = executor
 
@@ -375,6 +375,11 @@ class Estimator:
 
     async def stream(self) -> Fiber[Input | None, list[Result3d | None] | None]:
         executor = self.executor
+        if executor is None:
+            raise RuntimeError(
+                'Processing in the stream mode requires the Estimator to have an executor. Please pass an "executor" argument to the estimator constructor'
+            )
+
         loop = asyncio.get_running_loop()
 
         results: list[Result3d | None] | None = None

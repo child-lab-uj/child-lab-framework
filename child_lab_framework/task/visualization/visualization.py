@@ -1,6 +1,5 @@
 import typing
 from collections.abc import Sequence
-from concurrent.futures import ThreadPoolExecutor
 from functools import reduce
 from itertools import repeat, starmap
 
@@ -19,19 +18,15 @@ class Visualizable[T: Configuration](typing.Protocol):
 
 
 class Visualizer[T: Configuration]:
-    executor: ThreadPoolExecutor
-
     properties: Properties
     configuration: T
 
     def __init__(
         self,
-        executor: ThreadPoolExecutor,
         *,
         properties: Properties,
         configuration: T,
     ) -> None:
-        self.executor = executor
         self.properties = properties
         self.configuration = configuration
 
