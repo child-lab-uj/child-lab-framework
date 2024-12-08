@@ -8,7 +8,6 @@ import kornia
 import numpy as np
 import torch
 
-from ...core.sequence import imputed_with_reference_inplace
 from ...core.stream import InvalidArgumentException
 from ...core.video import Properties
 from ...typing.array import FloatArray1, FloatArray2, IntArray1
@@ -20,7 +19,7 @@ from ..pose.keypoint import YoloKeypoint
 type Input = tuple[list[Frame] | None, list[pose.Result | None] | None]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Result:
     boxes: FloatArray2
     confidences: FloatArray1
@@ -97,7 +96,7 @@ class Estimator:
         self,
         frames: list[Frame],
         poses: list[pose.Result],
-    ) -> list[Result] | None:
+    ) -> list[Result | None]:
         frame_batch = (
             torch.stack([torch.tensor(frame) for frame in frames])
             .permute(0, 3, 1, 2)
@@ -106,9 +105,7 @@ class Estimator:
 
         predictions = self.detector.forward(frame_batch)
 
-        return imputed_with_reference_inplace(
-            list(starmap(self.__match_faces_with_actors, zip(predictions, poses)))
-        )
+        return list(starmap(self.__match_faces_with_actors, zip(predictions, poses)))
 
     def __predict_safe(self, frame: Frame, poses: pose.Result | None) -> Result | None:
         if poses is None:

@@ -6,9 +6,9 @@ import torch
 from depth_pro import Config, DepthPro
 from torchvision.transforms import Compose, ConvertImageDtype, Normalize, Resize
 
-from ...core.sequence import imputed_with_reference_inplace
 from ...core.video import Frame, Properties
 from ...logging import Logger
+from ...postprocessing.imputation import imputed_with_closest_known_reference
 from ...typing.array import FloatArray2
 from ...typing.stream import Fiber
 from ...util import MODELS_DIR
@@ -94,7 +94,7 @@ class Estimator:
 
                     results = await loop.run_in_executor(
                         executor,
-                        lambda: imputed_with_reference_inplace(
+                        lambda: imputed_with_closest_known_reference(
                             [self.predict(frames[n_frames // 2], self.input)]
                             + [None for _ in range(n_frames - 1)]
                         ),

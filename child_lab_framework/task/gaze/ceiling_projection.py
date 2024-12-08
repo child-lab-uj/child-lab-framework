@@ -8,7 +8,6 @@ import cv2
 import numpy as np
 
 from ...core import transformation
-from ...core.sequence import imputed_with_reference_inplace
 from ...core.stream import InvalidArgumentException
 from ...core.transformation import Transformation
 from ...core.video import Properties
@@ -169,19 +168,17 @@ class Estimator:
         window_right_gazes: list[gaze.Result3d] | None,
         window_left_to_ceiling: list[Transformation] | None,
         window_right_to_ceiling: list[Transformation] | None,
-    ) -> list[Result] | None:
-        return imputed_with_reference_inplace(
-            list(
-                starmap(
-                    self.predict,
-                    zip(
-                        ceiling_poses,
-                        window_left_gazes or repeat(None),
-                        window_right_gazes or repeat(None),
-                        window_left_to_ceiling or repeat(None),
-                        window_right_to_ceiling or repeat(None),
-                    ),
-                )
+    ) -> list[Result | None]:
+        return list(
+            starmap(
+                self.predict,
+                zip(
+                    ceiling_poses,
+                    window_left_gazes or repeat(None),
+                    window_right_gazes or repeat(None),
+                    window_left_to_ceiling or repeat(None),
+                    window_right_to_ceiling or repeat(None),
+                ),
             )
         )
 

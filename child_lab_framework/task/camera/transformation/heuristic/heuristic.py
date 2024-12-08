@@ -2,7 +2,6 @@ import asyncio
 from concurrent.futures.thread import ThreadPoolExecutor
 from itertools import starmap
 
-from .....core.sequence import imputed_with_reference_inplace
 from .....core.transformation import Buffer, Transformation
 from .....core.video import Properties
 from .....logging import Logger
@@ -122,18 +121,16 @@ class Estimator:
         to_poses: list[pose.Result],
         from_depths: list[FloatArray2],
         to_depths: list[FloatArray2],
-    ) -> list[Transformation] | None:
-        return imputed_with_reference_inplace(
-            list(
-                starmap(
-                    self.predict,
-                    zip(
-                        from_poses,
-                        to_poses,
-                        from_depths,
-                        to_depths,
-                    ),
-                )
+    ) -> list[Transformation | None]:
+        return list(
+            starmap(
+                self.predict,
+                zip(
+                    from_poses,
+                    to_poses,
+                    from_depths,
+                    to_depths,
+                ),
             )
         )
 

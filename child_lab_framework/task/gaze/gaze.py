@@ -1,5 +1,6 @@
 import asyncio
 import typing
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import cached_property
@@ -8,17 +9,24 @@ from itertools import repeat, starmap
 import cv2
 import mini_face as mf
 import numpy as np
+import scipy
 
 from ...core.algebra import normalized_3d
 from ...core.calibration import Calibration
-from ...core.sequence import (
-    imputed_with_reference_inplace,
-    imputed_with_zeros_reference_inplace,
-)
 from ...core.stream import InvalidArgumentException
 from ...core.transformation import Transformation
 from ...core.video import Frame, Properties
-from ...typing.array import FloatArray2, FloatArray3, IntArray1
+from ...postprocessing.imputation import (
+    imputed_with_zeros_reference,
+)
+from ...typing.array import (
+    BoolArray1,
+    BoolArray2,
+    FloatArray1,
+    FloatArray2,
+    FloatArray3,
+    IntArray1,
+)
 from ...typing.stream import Fiber
 from ...util import MODELS_DIR as MODELS_ROOT
 from .. import face, visualization
@@ -37,6 +45,159 @@ class Result3d:
 
     # For numerical stability during transformation of a normalized `directions`
     __STABILIZING_MULTIPLIER: typing.ClassVar[float] = 100.0
+
+    @classmethod
+    def approximated(
+        cls,
+        results: Sequence['Result3d | None'],
+    ) -> list['Result3d'] | None:
+        if all(item is not None for item in results):
+            return typing.cast(list[Result3d], list(results))
+
+        if all(item is None for item in results):
+            return None
+
+        n_time_points = len(results)
+        time: FloatArray1 = np.zeros(n_time_points, dtype=np.float32)
+
+        max_actors = max(len(result.eyes) for result in results if result is not None)
+
+        actor_occurrences_in_time: BoolArray2 = np.zeros(
+            (max_actors, n_time_points),
+            dtype=bool,
+        )
+        actor_results_in_time: FloatArray3 = np.zeros(
+            (max_actors, n_time_points, 12),
+            dtype=np.float32,
+        )
+
+        for i, result in enumerate(results):
+            if result is None:
+                continue
+
+            eyes = result.__unbound_actor_eyes
+            directions = result.__unbound_actor_directions
+
+            n_actors = len(eyes)
+
+            actor_occurrences_in_time[:n_actors, i] = True
+            np.copyto(actor_results_in_time[:n_actors, i, :6], eyes)
+            np.copyto(actor_results_in_time[:n_actors, i, 6:], directions)
+
+        actor_time_mask: BoolArray1
+        for actor, actor_time_mask in enumerate(actor_occurrences_in_time):
+            weights = np.ones(n_time_points, dtype=np.float32)
+            weights[~actor_time_mask] = 0.0
+
+            n_known_points = int(actor_time_mask.sum())
+            degree = n_known_points // 2
+
+            coefficients = np.polyfit(
+                time,
+                actor_results_in_time[actor, ...],
+                deg=degree,
+                w=weights,
+            )
+
+            for feature in range(12):
+                polynomial = np.polynomial.Polynomial(coefficients[:, feature])
+                actor_results_in_time[actor, :, feature] = polynomial(time)
+
+        return list(
+            map(
+                Result3d.__from_flat,
+                np.transpose(actor_results_in_time, (1, 0, 2)),
+            )
+        )
+
+    # TODO: Deduplicate the boilerplate
+    @classmethod
+    def interpolated(
+        cls,
+        results: Sequence['Result3d | None'],
+    ) -> list['Result3d'] | None:
+        if all(item is not None for item in results):
+            return typing.cast(list[Result3d], list(results))
+
+        if all(item is None for item in results):
+            return None
+
+        n_time_points = len(results)
+        time: FloatArray1 = np.zeros(n_time_points, dtype=np.float32)
+
+        max_actors = max(len(result.eyes) for result in results if result is not None)
+
+        actor_occurrences_in_time: BoolArray2 = np.zeros(
+            (max_actors, n_time_points),
+            dtype=bool,
+        )
+        actor_results_in_time: FloatArray3 = np.zeros(
+            (max_actors, n_time_points, 12),
+            dtype=np.float32,
+        )
+
+        for i, result in enumerate(results):
+            if result is None:
+                continue
+
+            eyes = result.__unbound_actor_eyes
+            directions = result.__unbound_actor_directions
+
+            n_actors = len(eyes)
+
+            actor_occurrences_in_time[:n_actors, i] = True
+            np.copyto(actor_results_in_time[:n_actors, i, :6], eyes)
+            np.copyto(actor_results_in_time[:n_actors, i, 6:], directions)
+
+        for actor, actor_time_mask in enumerate(actor_occurrences_in_time):
+            actor_results: FloatArray2 = actor_results_in_time[actor, actor_time_mask, :]
+
+            actor_known_time = time[actor_time_mask]
+            negative_time_mask = ~actor_time_mask
+            actor_unknown_time = time[negative_time_mask]
+
+            interpolated_values = np.squeeze(
+                scipy.interpolate.krogh_interpolate(
+                    actor_known_time, actor_results, actor_unknown_time
+                )
+            )
+
+            actor_results_in_time[actor, negative_time_mask, ...] = interpolated_values
+
+        return list(
+            map(
+                Result3d.__from_flat,
+                np.transpose(actor_results_in_time, (1, 0, 2)),
+            )
+        )
+
+    @cached_property
+    def __unbound_actor_eyes(self) -> list[FloatArray1]:
+        return list(self.eyes.reshape(-1, 6))
+
+    @cached_property
+    def __unbound_actor_directions(self) -> list[FloatArray1]:
+        return list(self.directions.reshape(-1, 6))
+
+    @cached_property
+    def flat(self) -> FloatArray1:
+        return np.concatenate((self.eyes.flatten(), self.directions.flatten()))
+
+    @classmethod
+    def __from_flat(cls, data: FloatArray2) -> typing.Self:
+        assert data.ndim == 2
+
+        n_rows, n_cols = data.shape
+        assert n_rows > 0
+        assert n_cols == 12
+
+        eyes = data[:, :6]
+        directions = data[:, 6:]
+
+        return cls(
+            eyes.reshape(-1, 2, 3),
+            directions.reshape(-1, 2, 3),
+        )
 
     @property
     def flat_points(self) -> FloatArray2:
@@ -187,8 +348,8 @@ class Estimator:
             directions.append(detection.directions)  # type: ignore
 
         match (
-            imputed_with_zeros_reference_inplace(eyes),
-            imputed_with_zeros_reference_inplace(directions),
+            imputed_with_zeros_reference(eyes),
+            imputed_with_zeros_reference(directions),
         ):
             case list(eyes_imputed), list(directions_imputed):
                 return Result3d(
@@ -203,10 +364,8 @@ class Estimator:
         self,
         frames: list[Frame],
         faces: list[face.Result],
-    ) -> list[Result3d] | None:
-        return imputed_with_reference_inplace(
-            list(starmap(self.predict, zip(frames, faces)))
-        )
+    ) -> list[Result3d | None]:
+        return list(starmap(self.predict, zip(frames, faces)))
 
     def __predict_safe(self, frame: Frame, faces: face.Result | None) -> Result3d | None:
         if faces is None:
