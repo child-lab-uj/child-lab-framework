@@ -142,7 +142,7 @@ class Estimator:
                 window_left_to_ceiling.inverse
             ).project(calibration)
 
-            projected_directions = np.squeeze(np.mean(projected_gaze.directions, axis=1))
+            projected_directions = -np.squeeze(np.mean(projected_gaze.directions, axis=1))
             directions[-1, ...] = projected_directions[-1, ...]
 
         if window_right_gaze is not None and window_right_to_ceiling is not None:
@@ -151,7 +151,7 @@ class Estimator:
                 window_right_to_ceiling.inverse
             ).project(calibration)
 
-            projected_directions = np.squeeze(np.mean(projected_gaze.directions, axis=1))
+            projected_directions = -np.squeeze(np.mean(projected_gaze.directions, axis=1))
             directions[0, ...] = projected_directions[0, ...]
 
         return Result(
