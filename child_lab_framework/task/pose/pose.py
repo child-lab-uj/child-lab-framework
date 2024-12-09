@@ -90,20 +90,25 @@ class Result:
         confidence = self.flat_points_with_confidence[:, 2, np.newaxis].copy()
         keypoints_truncated = keypoints.astype(np.int32)
 
-        keypoints_depth = depth[
-            np.clip(
-                keypoints_truncated[:, 1],
-                a_min=0,
-                a_max=height - 1,
-                dtype=np.int32,
-            ),
-            np.clip(
-                keypoints_truncated[:, 0],
-                a_min=0,
-                a_max=width - 1,
-                dtype=np.int32,
-            ),
-        ].reshape(-1, 1)
+        keypoints_depth = (
+            depth[
+                np.clip(
+                    keypoints_truncated[:, 1],
+                    a_min=0,
+                    a_max=height - 1,
+                    dtype=np.int32,
+                ),
+                np.clip(
+                    keypoints_truncated[:, 0],
+                    a_min=0,
+                    a_max=width - 1,
+                    dtype=np.int32,
+                ),
+            ]
+            .reshape(-1, 1)
+            .copy()
+            * 1000.0  # Convert meters to millimeters
+        )
 
         cx, cy = calibration.optical_center
         fx, fy = calibration.focal_length
