@@ -80,7 +80,12 @@ class Estimator:
 
         # TODO: return the tensor itself without transferring (Issue #6)
         result = self.model.predict(input, focal_length)
-        depth = self.from_model(result.depth).cpu().numpy()
+        depth = (
+            self.from_model(result.depth)
+            .mul(1000.0)  # convert from metres to millimetres
+            .cpu()
+            .numpy()
+        )
         del result
 
         return depth
