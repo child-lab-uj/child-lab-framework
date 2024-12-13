@@ -6,13 +6,13 @@ from itertools import repeat, starmap
 
 import cv2
 import numpy as np
+from icecream import ic
 
 from ...core import transformation
 from ...core.stream import InvalidArgumentException
 from ...core.transformation import Transformation
 from ...core.video import Properties
-from ...logging import Logger
-from ...typing.array import BoolArray1, FloatArray1, FloatArray2
+from ...typing.array import BoolArray1, FloatArray2, IntArray1
 from ...typing.stream import Fiber
 from ...typing.video import Frame
 from .. import face, pose, visualization
@@ -44,20 +44,32 @@ class Result:
         starts = self.centres
         ends = starts + float(configuration.gaze_line_length) * self.directions
 
-        start: FloatArray1
-        end: FloatArray1
+        start: IntArray1
+        end: IntArray1
 
         basic_color = configuration.gaze_line_color
         baseline_color = configuration.gaze_baseline_line_color
         thickness = configuration.gaze_line_thickness
 
-        for start, end, was_corrected in zip(starts, ends, self.was_corrected):
+        for start, end, was_corrected in zip(
+            starts.astype(np.int32),
+            ends.astype(np.int32),
+            self.was_corrected,
+        ):
             color = basic_color if was_corrected else baseline_color
+
+            cv2.circle(
+                frame,
+                typing.cast(cv2.typing.Point, start),
+                3,
+                (0.0, 0.0, 255.0, 1.0),
+                1,
+            )
 
             cv2.line(
                 frame,
-                typing.cast(cv2.typing.Point, start.astype(np.int32)),
-                typing.cast(cv2.typing.Point, end.astype(np.int32)),
+                typing.cast(cv2.typing.Point, start),
+                typing.cast(cv2.typing.Point, end),
                 color,
                 thickness,
             )
@@ -99,59 +111,56 @@ class Estimator:
     ) -> Result:
         buffer = self.transformation_buffer
 
+        ceiling_name = self.ceiling_properties.name
         window_left_name = self.window_left_properties.name
         window_right_name = self.window_right_properties.name
 
         if window_left_to_ceiling is None:
-            window_left_to_ceiling = buffer[window_left_name, window_right_name]
+            window_left_to_ceiling = buffer[window_left_name, ceiling_name]
 
         if window_right_to_ceiling is None:
-            window_right_to_ceiling = buffer[window_right_name, window_left_name]
+            window_right_to_ceiling = buffer[window_right_name, ceiling_name]
 
         centres, directions = ceiling_baseline.estimate(
             ceiling_pose,
             face_keypoint_threshold=0.4,
         )
 
-        correct_from_left = (
-            window_left_gaze is not None and window_left_to_ceiling is not None
-        )
+        correct_from_left = False
+        correct_from_right = False
 
-        correct_from_right = (
-            window_right_gaze is not None and window_right_to_ceiling is not None
-        )
-
-        correction_count = int(correct_from_left) + int(correct_from_right)
-
-        if correction_count == 0:
-            Logger.info('Skipped correction')
-            return Result(
-                centres,
-                directions,
-                np.array([False for _ in range(len(centres))]),
-            )
+        ceiling_calibration = self.ceiling_properties.calibration
 
         # slicing gaze direction arrays is a heuristic workaround for a lack of exact actor matching between cameras
         # assuming there are only two actors in the world.
         # gaze detected in the left camera => it belongs the actor on the right
 
-        # cannot reuse `correct_from_left` value because the type checker gets confused about not-None values
         if window_left_gaze is not None and window_left_to_ceiling is not None:
-            calibration = self.window_left_properties.calibration
-            projected_gaze = window_left_gaze.transform(
-                window_left_to_ceiling.inverse
-            ).project(calibration)
+            correct_from_left = True
 
-            projected_directions = -np.squeeze(np.mean(projected_gaze.directions, axis=1))
+            projected_gaze = window_left_gaze.transform(window_left_to_ceiling).project(
+                ceiling_calibration
+            )
+
+            projected_directions = np.squeeze(np.mean(projected_gaze.directions, axis=1))
+            projected_centres = np.mean(projected_gaze.eyes, axis=1).reshape(-1, 2)
+            ic(projected_centres)
+
+            centres[-1, ...] = projected_centres[-1, ...]
             directions[-1, ...] = projected_directions[-1, ...]
 
         if window_right_gaze is not None and window_right_to_ceiling is not None:
-            calibration = self.window_right_properties.calibration
-            projected_gaze = window_right_gaze.transform(
-                window_right_to_ceiling.inverse
-            ).project(calibration)
+            correct_from_right = True
 
-            projected_directions = -np.squeeze(np.mean(projected_gaze.directions, axis=1))
+            projected_gaze = window_right_gaze.transform(window_right_to_ceiling).project(
+                ceiling_calibration
+            )
+
+            projected_directions = np.squeeze(np.mean(projected_gaze.directions, axis=1))
+            projected_centres = np.mean(projected_gaze.eyes, axis=1).reshape(-1, 2)
+            ic(projected_centres)
+
+            centres[0, ...] = projected_centres[0, ...]
             directions[0, ...] = projected_directions[0, ...]
 
         return Result(

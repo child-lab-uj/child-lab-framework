@@ -211,8 +211,7 @@ class Result3d:
         cx, cy = calibration.optical_center
         fx, fy = calibration.focal_length
 
-        # TODO: remove the rescale (Issue #60)
-        eyes = self.eyes.copy() * 8.0 / 28.0
+        eyes = self.eyes.copy()
         z = eyes[..., -1]
         eyes[..., 0] *= fx
         eyes[..., 1] *= fy
@@ -353,7 +352,8 @@ class Estimator:
                 axis=0,
             )[np.newaxis, ...]
 
-            eyes.append(detection.eyes)  # type: ignore
+            # TODO: remove the rescale (Issue #60)
+            eyes.append(detection.eyes * 8.0 / 28.0)  # type: ignore
             directions.append(averaged_directions)  # type: ignore
 
         match (
