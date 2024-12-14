@@ -345,7 +345,7 @@ def main(
             ceiling_frames,
             [
                 p.unproject(window_left_properties.calibration, ceiling_depth)
-                .transform(t.inverse)
+                .transform(t)
                 .project(ceiling_properties.calibration)
                 if t is not None
                 else None
@@ -356,7 +356,7 @@ def main(
             ],
             [
                 p.unproject(window_right_properties.calibration, ceiling_depth)
-                .transform(t.inverse)
+                .transform(t)
                 .project(ceiling_properties.calibration)
                 if t is not None
                 else None
