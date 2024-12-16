@@ -344,8 +344,17 @@ class Estimator:
                 directions.append(None)
                 continue
 
+            actor_directions = detection.directions
+            mean_direction = np.mean(actor_directions, axis=1)
+
+            averaged_directions = np.repeat(
+                mean_direction,
+                repeats=2,
+                axis=0,
+            )[np.newaxis, ...]
+
             eyes.append(detection.eyes)  # type: ignore
-            directions.append(detection.directions)  # type: ignore
+            directions.append(averaged_directions)  # type: ignore
 
         match (
             imputed_with_zeros_reference(eyes),
