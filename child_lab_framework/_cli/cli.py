@@ -117,6 +117,12 @@ def calibrate(
     required=False,
     help='File containing serialized Buffer to load and place new transformations in',
 )
+@click.option(
+    '--skip',
+    type=int,
+    required=False,
+    help='Seconds of videos to skip at the beginning',
+)
 @click_trap()
 def estimate_transformations(
     workspace: Path,
@@ -125,6 +131,7 @@ def estimate_transformations(
     marker_size: float,
     device: str | None,
     checkpoint: Path | None,
+    skip: int | None,
 ) -> None:
     video_input_dir = workspace / 'input'
     video_output_dir = workspace / 'output'
@@ -158,7 +165,7 @@ def estimate_transformations(
     if dictionary is None:
         raise click.ClickException(f'Unrecognized dictionary name: "{marker_dictionary}"')
 
-    config = transformation_procedure.Config(model, dictionary)
+    configuration = transformation_procedure.Configuration(model, dictionary)
 
     calibrations = [
         load(Calibration, calibration_input_dir / (video.stem + '.yml'))
@@ -171,7 +178,8 @@ def estimate_transformations(
         [video_input_dir / video for video in videos],
         [video_output_dir / video for video in videos],
         calibrations,
-        config,
+        skip if skip is not None else 0,
+        configuration,
         device_handle,
     )
 
