@@ -3,19 +3,19 @@ from pathlib import Path
 
 import cv2
 import torch
-from tqdm import tqdm
+from tqdm import trange
 
 from ..core import transformation
 from ..core.calibration import Calibration
 from ..core.video import Format, Input, Reader, Writer
-from ..task import visualization
+from ..task import depth, visualization
 from ..task.camera.detection import marker
 
 MARKER_PREFIX = 'marker'
 
 
 @dataclass(frozen=True)
-class Config:
+class Configuration:
     model: marker.RigidModel
     dictionary: marker.Dictionary
     detector_parameters: cv2.aruco.DetectorParameters = cv2.aruco.DetectorParameters()
@@ -27,7 +27,8 @@ def run(
     video_sources: list[Path],
     video_destinations: list[Path],
     calibrations: list[Calibration],
-    config: Config,
+    skip: int,
+    configuration: Configuration,
     device: torch.device,
 ) -> transformation.Buffer[str]:
     if len(video_sources) < 2:
@@ -41,15 +42,20 @@ def run(
         for input, calibration in zip(video_sources, calibrations)
     ]
 
+    for reader in readers:
+        reader.read_skipping(skip * reader.properties.fps)
+
     writers = [
         Writer(destination, reader.properties, output_format=Format.MP4)
         for destination, reader in zip(video_destinations, readers)
     ]
 
+    depth_estimator = depth.Estimator(device, input=readers[0].properties)
+
     detector = marker.Detector(
-        model=config.model,
-        dictionary=config.dictionary,
-        detector_parameters=config.detector_parameters,
+        model=configuration.model,
+        dictionary=configuration.dictionary,
+        detector_parameters=configuration.detector_parameters,
     )
 
     visualizer = visualization.Visualizer(
@@ -57,7 +63,18 @@ def run(
         configuration=visualization.Configuration(),
     )
 
+    camera_progress_bar = trange(len(readers), desc='Processing cameras')
+    frame_progress_bar = trange(
+        min(
+            (reader.properties.length for reader in readers),
+            default=0,
+        ),
+        desc='Processing frames',
+    )
+
     while not buffer.connected:
+        frame_progress_bar.update()
+
         views = [
             (reader, writer, frame)
             for reader, writer in zip(readers, writers)
@@ -67,9 +84,15 @@ def run(
         if len(views) == 0:
             break
 
-        for reader, writer, frame in tqdm(views, 'Processing frames'):
+        camera_progress_bar.refresh()
+        camera_progress_bar.reset()
+
+        for reader, writer, frame in views:
+            camera_progress_bar.update()
+
             detector.calibration = reader.properties.calibration
-            markers = detector.predict(frame)
+            frame_depth = depth_estimator.predict(frame, reader.properties)
+            markers = detector.predict(frame, frame_depth)
 
             if markers is None:
                 continue

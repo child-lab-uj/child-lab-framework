@@ -54,7 +54,7 @@ class Configuration:
     marker_id_color: Color = (0.0, 255.0, 0.0, 1.0)
     marker_id_size: int = 10
     marker_draw_axes: bool = True
-    marker_axis_length: int = 10
+    marker_axis_length: int = 100
     marker_axis_thickness: int = 2
     marker_draw_angles: bool = True
     marker_angle_color: Color = (255.0, 255.0, 255.0, 1.0)

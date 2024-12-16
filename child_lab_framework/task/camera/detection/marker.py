@@ -7,6 +7,7 @@ import cv2.aruco as opencv_aruco
 import numpy as np
 
 from ....core import serialization, transformation
+from ....core.algebra import depth_to_perspective, kabsch
 from ....core.calibration import Calibration
 from ....core.video import Properties
 from ....typing.array import FloatArray2, FloatArray3, IntArray1
@@ -121,7 +122,7 @@ class RigidModel:
 class Result:
     corners: FloatArray3
     ids: IntArray1
-    transformations: list[transformation.ProjectiveTransformation | None]
+    transformations: list[transformation.ProjectiveTransformation]
 
     # TODO: Implement custom drawing procedure
     def visualize(
@@ -199,7 +200,7 @@ class Detector:
 
         self.model = model
 
-    def predict(self, frame: Frame) -> Result | None:
+    def predict(self, frame: Frame, depth: FloatArray2) -> Result | None:
         corners: list[FloatArray2]
         ids: IntArray1
 
@@ -208,36 +209,36 @@ class Detector:
         if len(corners) == 0 or len(ids) == 0:
             return None
 
-        batched_corners = np.stack(corners)
-
         calibration = self.calibration
-        intrinsics = calibration.intrinsics
-        distortion = calibration.distortion
 
-        marker_local_coordinates = self.model.coordinates
+        perspective_coordinates = depth_to_perspective(depth, calibration)
 
-        results = [
-            # interpretation: rotate the camera so the marker will be in the center
-            opencv.solvePnP(
-                marker_local_coordinates,
-                marker_corners,
-                intrinsics,
-                distortion,
-                useExtrinsicGuess=True,
-                flags=opencv.SOLVEPNP_IPPE_SQUARE,
+        marker_camera_coordinates = [
+            np.stack(
+                [
+                    perspective_coordinates[int(marker_y), int(marker_x)]
+                    for marker_x, marker_y in np.squeeze(marker_corners)
+                ]
             )
             for marker_corners in corners
         ]
 
-        transformations = [
-            transformation.ProjectiveTransformation(
-                opencv.Rodrigues(rotation)[0],  # type: ignore
-                np.squeeze(translation),  # type: ignore
-                calibration,
-            )
-            if success
-            else None
-            for success, rotation, translation in results
+        marker_rigid_coordinates = self.model.coordinates
+
+        results = [
+            # Estimate the transformation from the rigid frame of reference (lately shared between cameras)
+            # and the concrete camera
+            kabsch(marker_rigid_coordinates, camera_coordinates)
+            for camera_coordinates in marker_camera_coordinates
         ]
 
-        return Result(batched_corners, ids, transformations)
+        transformations = [
+            transformation.ProjectiveTransformation(
+                rotation,
+                np.squeeze(translation),
+                calibration,
+            )
+            for rotation, translation in results
+        ]
+
+        return Result(np.stack(corners), ids, transformations)
