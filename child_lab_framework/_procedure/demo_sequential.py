@@ -12,7 +12,7 @@ from ..core import transformation
 from ..core.file import save
 from ..core.video import Format, Input, Reader, Writer
 from ..logging import Logger
-from ..task import depth, face, gaze, pose
+from ..task import depth, face, gaze, joint_attention, pose
 from ..task.camera.transformation import heuristic as heuristic_transformation
 from ..task.visualization import Configuration as VisualizationConfiguration
 from ..task.visualization import Visualizer
@@ -106,6 +106,8 @@ def main(
         window_left_properties,
         window_right_properties,
     )
+
+    joint_attention_estimator = joint_attention.probabilistic.Estimator()
 
     # social_distance_estimator = social_distance.Estimator(executor)
     # social_distance_logger = social_distance.FileLogger('dev/output/distance.csv')
@@ -325,6 +327,17 @@ def main(
         )
         Logger.info('Done!')
 
+        window_left_joint_attention = (
+            joint_attention_estimator.predict_batch(window_left_gazes)
+            if window_left_gazes is not None
+            else None
+        )
+        window_right_joint_attention = (
+            joint_attention_estimator.predict_batch(window_right_gazes)
+            if window_right_gazes is not None
+            else None
+        )
+
         if window_left_gazes is None:
             Logger.error('window_left_gazes == None')
 
@@ -367,17 +380,28 @@ def main(
             ],
         )
 
-        ceiling_annotated_frames = ceiling_visualizer.annotate_batch(
-            ceiling_frames,
-            ceiling_poses,
-            ceiling_gazes,
-        )
+        ceiling_joint_attention_from_left = [
+            result.transform(t) if result is not None and t is not None else None
+            for result, t in zip(
+                window_left_joint_attention or [],
+                window_left_to_ceiling or [],  # type: ignore  # window_left_to_ceiling identifier always exists at this point
+            )
+        ]
+
+        ceiling_joint_attention_from_right = [
+            result.transform(t) if result is not None and t is not None else None
+            for result, t in zip(
+                window_right_joint_attention or [],
+                window_right_to_ceiling or [],  # type: ignore  # window_left_to_ceiling identifier always exists at this point
+            )
+        ]
 
         window_left_annotated_frames = window_left_visualizer.annotate_batch(
             window_left_frames,
             window_left_poses,
             window_left_faces,
             window_left_gazes,
+            window_left_joint_attention,
         )
 
         window_right_annotated_frames = window_right_visualizer.annotate_batch(
@@ -385,6 +409,15 @@ def main(
             window_right_poses,
             window_right_faces,
             window_right_gazes,
+            window_right_joint_attention,
+        )
+
+        ceiling_annotated_frames = ceiling_visualizer.annotate_batch(
+            ceiling_frames,
+            ceiling_poses,
+            ceiling_gazes,
+            ceiling_joint_attention_from_left,
+            ceiling_joint_attention_from_right,
         )
         Logger.info('Done!')
 
