@@ -11,6 +11,8 @@ from ..typing.stream import Fiber
 from ..typing.video import Frame
 from .calibration import Calibration
 
+SUPPORTED_SUFFIXES = ('.avi', '.mp4')
+
 
 class Format(Enum):
     AVI = 'mjpg'
