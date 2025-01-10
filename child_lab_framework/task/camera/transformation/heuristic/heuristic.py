@@ -8,7 +8,7 @@ from .....logging import Logger
 from .....typing.array import FloatArray2
 from .....typing.stream import Fiber
 from .... import pose
-from . import box_kabsch, kabsch, projection
+from . import box_kabsch, kabsch
 
 type Input = tuple[
     list[pose.Result | None] | None,
@@ -72,15 +72,6 @@ class Estimator:
 
         transformation: Transformation | None = None
         for transformation in [
-            projection.estimate(
-                from_pose,
-                from_pose_3d,
-                to_pose,
-                to_pose_3d,
-                from_calibration,
-                to_calibration,
-                self.keypoint_threshold,
-            ),
             kabsch.estimate(
                 from_pose,
                 from_pose_3d,

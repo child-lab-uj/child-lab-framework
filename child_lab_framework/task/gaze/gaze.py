@@ -11,7 +11,7 @@ import mini_face as mf
 import numpy as np
 import scipy
 
-from ...core.algebra import normalized_3d
+from ...core.algebra import batch_normalized_3d
 from ...core.calibration import Calibration
 from ...core.stream import InvalidArgumentException
 from ...core.transformation import Transformation
@@ -211,8 +211,7 @@ class Result3d:
         cx, cy = calibration.optical_center
         fx, fy = calibration.focal_length
 
-        # TODO: remove the rescale (Issue #60)
-        eyes = self.eyes.copy() * 8.0 / 28.0
+        eyes = self.eyes.copy()
         z = eyes[..., -1]
         eyes[..., 0] *= fx
         eyes[..., 1] *= fy
@@ -232,7 +231,7 @@ class Result3d:
 
         directions = ends - eyes
         directions_2d = directions[..., :-1]
-        directions_2d = normalized_3d(directions_2d)
+        directions_2d = batch_normalized_3d(directions_2d)
 
         return Result(eyes[..., :-1], directions_2d)
 
@@ -344,8 +343,18 @@ class Estimator:
                 directions.append(None)
                 continue
 
-            eyes.append(detection.eyes)  # type: ignore
-            directions.append(detection.directions)  # type: ignore
+            actor_directions = detection.directions
+            mean_direction = np.mean(actor_directions, axis=1)
+
+            averaged_directions = np.repeat(
+                mean_direction,
+                repeats=2,
+                axis=0,
+            )[np.newaxis, ...]
+
+            # TODO: remove the rescale (Issue #60)
+            eyes.append(detection.eyes * 8.0 / 28.0)  # type: ignore
+            directions.append(averaged_directions)  # type: ignore
 
         match (
             imputed_with_zeros_reference(eyes),

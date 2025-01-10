@@ -1,4 +1,5 @@
 import sys
+import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Self, TypeVar
@@ -70,13 +71,17 @@ class EuclideanTransformation(Transformation):
 
     @property
     def inverse(self) -> Transformation:
-        return EuclideanTransformation(np.linalg.inv(self.rotation), -self.translation)
+        inverse_rotation = self.rotation.transpose()
+        inverse_translation = -inverse_rotation @ self.translation
+        return EuclideanTransformation(inverse_rotation, inverse_translation)
 
     def __matmul__(self, other: 'Transformation') -> 'Transformation':
         return EuclideanTransformation(
-            *_split(
-                _join(self.rotation, self.translation)
-                @ _join(other.rotation, other.translation)
+            *_combine(
+                other.rotation,
+                other.translation,
+                self.rotation,
+                self.translation,
             )
         )
 
@@ -146,13 +151,15 @@ class ProjectiveTransformation(Transformation):
 
     @property
     def inverse(self) -> Transformation:
-        return EuclideanTransformation(np.linalg.inv(self.rotation), -self.translation)
+        return EuclideanTransformation(self.rotation, self.translation).inverse
 
     def __matmul__(self, other: 'Transformation') -> 'Transformation':
         return ProjectiveTransformation(
-            *_split(
-                _join(self.rotation, self.translation)
-                @ _join(other.rotation, other.translation)
+            *_combine(
+                other.rotation,
+                other.translation,
+                self.rotation,
+                self.translation,
             ),
             self.calibration,
         )
@@ -204,13 +211,34 @@ class ProjectiveTransformation(Transformation):
                 )
 
 
-def _join(rotation: FloatArray2, translation: FloatArray1) -> FloatArray2:
-    m = np.zeros((4, 4), dtype=np.float32)
-    m[:3, :3] = rotation
-    m[3, :3] = np.squeeze(translation)
-    m[3, 3] = 1.0
-    return m
+def _combine(
+    inner_rotation: FloatArray2,
+    inner_translation: FloatArray1,
+    outer_rotation: FloatArray2,
+    outer_translation: FloatArray1,
+) -> tuple[FloatArray2, FloatArray1]:
+    """
+    Chain two transformations (given as rotations and translations) to produce a new transformation: `x -> outer_transformation(inner_transformation(x))`.
 
+    Returns
+    ---
+    result: tuple[FloatArray2, FloatArray1]
+    """
 
-def _split(transformation: FloatArray2) -> tuple[FloatArray2, FloatArray1]:
-    return transformation[:3, :3], transformation[3, :3]
+    inner_rotation_vector, _ = cv2.Rodrigues(inner_rotation)
+    outer_rotation_vector, _ = cv2.Rodrigues(inner_rotation)
+
+    combined_rotation_vector, combined_translation, *_ = cv2.composeRT(
+        inner_rotation_vector,
+        inner_translation,
+        outer_rotation_vector,
+        outer_translation,
+    )
+
+    combined_rotation, _ = cv2.Rodrigues(combined_rotation_vector)
+    combined_translation = np.squeeze(combined_translation)
+
+    return (
+        typing.cast(FloatArray2, combined_rotation),
+        typing.cast(FloatArray1, combined_translation),
+    )

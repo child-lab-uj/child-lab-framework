@@ -1,6 +1,6 @@
 import numpy as np
 
-from ...core.algebra import normalized, orthogonal
+from ...core.algebra import batch_normalized, orthogonal
 from ...task import pose
 from ...typing.array import FloatArray2
 from ..pose.keypoint import YoloKeypoint
@@ -17,7 +17,7 @@ def estimate(
     ]
 
     # convention: shoulder vector goes from left to right -> versor (calculated as [y, -x]) points to the actor's front
-    directions = normalized(orthogonal(right_shoulders - left_shoulders))
+    directions = batch_normalized(orthogonal(right_shoulders - left_shoulders))
 
     starts = np.zeros_like(directions)
 

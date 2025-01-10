@@ -19,6 +19,9 @@ class Configuration:
     gaze_line_thickness: int = 5
     gaze_line_length: int = 250
 
+    joint_attention_confidence_threshold: float = 0.5
+    joint_attention_distribution_samples: int = 1000
+
     pose_draw_skeletons: bool = True
     pose_draw_skeletons_confidence: bool = True
     pose_bone_color: Color = (0.0, 0.0, 255.0, 1.0)
@@ -54,7 +57,7 @@ class Configuration:
     marker_id_color: Color = (0.0, 255.0, 0.0, 1.0)
     marker_id_size: int = 10
     marker_draw_axes: bool = True
-    marker_axis_length: int = 10
+    marker_axis_length: int = 100
     marker_axis_thickness: int = 2
     marker_draw_angles: bool = True
     marker_angle_color: Color = (255.0, 255.0, 255.0, 1.0)
