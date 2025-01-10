@@ -86,7 +86,7 @@ def run(
         desc='Processing frames',
     )
 
-    while not buffer.connected:
+    while True:
         frame_progress_bar.update()
 
         views = [
