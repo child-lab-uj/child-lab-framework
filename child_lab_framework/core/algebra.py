@@ -4,7 +4,7 @@ from typing import Literal
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from ..typing.array import FloatArray1, FloatArray2, FloatArray3, FloatArray6
+from ..typing.array import FloatArray1, FloatArray2, FloatArray3
 from .calibration import Calibration
 
 
@@ -65,6 +65,24 @@ def kabsch(
     from_points: FloatArray2,
     to_points: FloatArray2,
 ) -> tuple[FloatArray2, FloatArray1]:
+    """
+    Find an affine transformation given by a `3 x 3` rotation matrix `R` and a translation vector `t` such that:\\
+    `to_points = R @ from_points + t`.
+
+    Parameters
+    ---
+    from_points: FloatArray2
+        An `n x 3` array of 3D points to transform into `to_points` by applying the transformation.
+
+    to_points: FloatArray2
+        An `n x 3` array of 3D points to obtain from `from_points` by applying the transformation.
+
+    Returns
+    ---
+    result: tuple[FloatArray2, FloatArray1]
+        A `3 x 3` rotation matrix and `1 x 3` translation vector.
+    """
+
     if from_points.shape != to_points.shape:
         raise ValueError(
             f'Expected inputs and outputs of equal shape, got input: {from_points.shape}, output: {to_points.shape}'
@@ -106,12 +124,25 @@ def kabsch(
     return rotation, translation.squeeze()
 
 
-def make_point_cloud(
-    rgb: FloatArray3,
-    depth: FloatArray2,
-    calibration: Calibration,
-) -> FloatArray6:
-    height, width, *_ = rgb.shape
+def depth_to_perspective(depth: FloatArray2, calibration: Calibration) -> FloatArray3:
+    """
+    Unproject the depth map into a perspective view.
+
+    Parameters
+    ---
+    depth: FloatArray2
+        A `height x width` depth map to unproject of shape.
+
+    calibration: Calibration
+        A calibration of the camera that observes the `depth`.
+
+    Returns
+    ---
+    result: FloatArray3
+        A `height x width x 3` array of 3D points in a camera perspective.
+    """
+
+    height, width = depth.shape
 
     fx, fy = calibration.focal_length
     cx, cy = calibration.optical_center
@@ -122,4 +153,33 @@ def make_point_cloud(
     y = np.expand_dims((ys - cy) * depth / fy, axis=-1)
     z = np.expand_dims(depth, axis=-1)
 
-    return np.concatenate((x, y, z, rgb), axis=-1)
+    return np.concatenate((x, y, z), axis=-1)
+
+
+def point_cloud(
+    rgb: FloatArray3,
+    depth: FloatArray2,
+    /,
+    calibration: Calibration,
+) -> FloatArray3:
+    """
+    Transform an `rgb` image and its corresponding depth map `depth` into a point cloud seen in a perspective.
+
+    Parameters
+    ---
+    rgb: FloatArray3
+        A `height x width x 3` representation of an RGB image seen from a camera.
+
+    depth: FloatArray2
+        A `height x width` depth map corresponding to the `rgb` image.
+
+    calibration: Calibration
+        A calibration of the camera that observes the `rgb` image and its `depth` depth map.
+
+    Returns
+    ---
+    point_cloud: FloarArray3
+        A `height x width x 6` array of vectors: `[x, y, z, r, g, b]` representing perspective points with their corresponding RGB values.
+    """
+
+    return np.concatenate((depth_to_perspective(depth, calibration), rgb), axis=-1)
