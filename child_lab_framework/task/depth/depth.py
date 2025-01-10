@@ -19,6 +19,9 @@ def to_frame(depth_map: FloatArray2) -> Frame:
     return numpy.transpose(numpy.stack((normalized, normalized, normalized)), (1, 2, 0))
 
 
+type Input = tuple[list[Frame] | None, list[Properties] | None]
+
+
 class Estimator:
     MODEL_PATH = MODELS_DIR / 'depth_pro.pt'
 
@@ -31,18 +34,15 @@ class Estimator:
     input: Properties
 
     to_model: Compose
-    from_model: Compose
 
     def __init__(
         self,
         device: torch.device,
         *,
-        input: Properties,
         executor: ThreadPoolExecutor | None = None,
     ) -> None:
         self.executor = executor
         self.device = device
-        self.input = input
 
         config = Config(checkpoint=self.MODEL_PATH)
         self.model_config = config
@@ -54,13 +54,6 @@ class Estimator:
             [
                 ConvertImageDtype(torch.half),
                 Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
-            ]
-        )
-
-        self.from_model = Compose(
-            [
-                ConvertImageDtype(torch.float32),
-                Resize((input.height, input.width)),
             ]
         )
 
@@ -81,7 +74,9 @@ class Estimator:
         # TODO: return the tensor itself without transferring (Issue #6)
         result = self.model.predict(input, focal_length)
         depth = (
-            self.from_model(result.depth)
+            Resize((properties.height, properties.width))
+            .forward(result.depth)
+            .to(torch.float32)
             .mul(1000.0)  # convert from metres to millimetres
             .cpu()
             .numpy()
@@ -90,7 +85,7 @@ class Estimator:
 
         return depth
 
-    async def stream(self) -> Fiber[list[Frame] | None, list[FloatArray2] | None]:
+    async def stream(self) -> Fiber[Input | None, list[FloatArray2] | None]:
         executor = self.executor
         if executor is None:
             raise RuntimeError(
@@ -103,13 +98,17 @@ class Estimator:
 
         while True:
             match (yield results):
-                case list(frames):
+                case list(frames), list(properties):
                     n_frames = len(frames)
 
                     results = await loop.run_in_executor(
                         executor,
                         lambda: imputed_with_closest_known_reference(
-                            [self.predict(frames[n_frames // 2], self.input)]
+                            [
+                                self.predict(
+                                    frames[n_frames // 2], properties[n_frames // 2]
+                                )
+                            ]
                             + [None for _ in range(n_frames - 1)]
                         ),
                     )

@@ -58,7 +58,7 @@ def main(
     )
     window_right_properties = window_right_reader.properties
 
-    depth_estimator = depth.Estimator(device, input=ceiling_properties)
+    depth_estimator = depth.Estimator(device)
 
     transformation_buffer = transformation_buffer or transformation.Buffer()
 
