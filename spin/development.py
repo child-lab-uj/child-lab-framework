@@ -109,23 +109,23 @@ def new(
         input,
         output,
         archive,
-        workspace_calibration,
-        workspace_transformation,
     ):
         directory.mkdir()
 
     if data is not None:
         for file in data.iterdir():
-            if file.suffix not in SUPPORTED_SUFFIXES:
-                continue
-
-            shutil.copy(file, input)
+            if file.suffix in SUPPORTED_SUFFIXES:
+                shutil.copy(file, input)
 
     if calibration_preset_location is not None:
         shutil.copytree(calibration_preset_location, workspace_calibration)
+    else:
+        workspace_calibration.mkdir()
 
     if transformation_preset_location is not None:
         shutil.copytree(transformation_preset_location, workspace_transformation)
+    else:
+        workspace_transformation.mkdir()
 
     click.echo(f'Successfully initialized workspace "{name}" in {WORKSPACES_LOCATION}')
 
