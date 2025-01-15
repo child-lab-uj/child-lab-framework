@@ -13,15 +13,10 @@ packages = [{ include = "child_lab_framework" }]
 python = "^3.12"
 opencv-python = "^4.10.0.84"
 ultralytics = "^8.2.72"
-mediapipe = "^0.10.14"
 colorama = "^0.4.6"
-numba = "^0.60.0"
 networkx = "^3.3"
 scipy = "^1.14.1"
 pandas = "^2.2.2"
-mtcnn = "^0.1.1"
-ml-dtypes = "0.4.0"                                                   # installing higher version fails because it requires NumPy >= 2.1 (see issue #7)
-tensorflow = "2.17.0"                                                 # higher version causes errors on server. TODO: remove this constraint as soon as MTCNN gets removed
 mini-face = "^0.1.3"
 depth-pro = { git = "https://github.com/child-lab-uj/depth-pro.git" }
 click = "^8.1.7"
