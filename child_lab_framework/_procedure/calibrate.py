@@ -16,7 +16,7 @@ from ..typing.array import FloatArray2, FloatArray3
 def run(
     video_source: Path,
     annotated_video_destination: Path,
-    board_properties: chessboard.Properties,
+    board_properties: chessboard.BoardProperties,
     skip: int,
 ) -> Calibration:
     reader = Reader(
@@ -39,8 +39,8 @@ def run(
 
     detector = chessboard.Detector(board_properties)
 
-    inner_corners_per_row = board_properties.inner_corners_per_row
-    inner_corners_per_column = board_properties.inner_corners_per_column
+    inner_corners_per_row = board_properties.inner_columns
+    inner_corners_per_column = board_properties.inner_rows
     square_size = board_properties.square_size
 
     # Prepare object points, like (0,0,0), (1,0,0), (2,0,0). ...,(6,5,0)

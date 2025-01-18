@@ -89,7 +89,7 @@ def calibrate(
         calibration = calibration_procedure.run(
             video_input,
             video_output,
-            chessboard.Properties(square_size, *inner_board_corners),
+            chessboard.BoardProperties(square_size, *inner_board_corners),
             skip,
         )
 
