@@ -1,10 +1,10 @@
 import numpy as np
 
-from .interface import ProjectableAndTransformable
+from .interface import ProjectableAndTransformable, Unprojectable
 from .transformation import Transformation
 
 
-def reprojection_error[T: ProjectableAndTransformable](
+def reprojection_error[T: ProjectableAndTransformable[Unprojectable[object]]](
     object_in_a: T,
     object_in_b: T,
     a_to_b: Transformation,

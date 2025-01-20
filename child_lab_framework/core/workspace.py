@@ -35,7 +35,10 @@ class Workspace:
     name: str
     root: Path
     inputs: list[Input]
-    transformation_buffer: Buffer | None
+
+    # The concrete type of the buffer does not matter for the Workspace,
+    # it should be downcasted in order to be used.
+    transformation_buffer: Buffer[object] | None
 
     @classmethod
     def load(cls, root: Path) -> Self:

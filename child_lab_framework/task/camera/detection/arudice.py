@@ -140,7 +140,7 @@ class AruDie:
             }:
                 instance = cls(Configuration.deserialize(serialized_configuration))
 
-                transformations = dict()
+                transformations: dict[tuple[str, str], EuclideanTransformation] = dict()
 
                 for entry in serialized_static_transformations:
                     match entry:
@@ -148,13 +148,18 @@ class AruDie:
                             'from': str(from_name),
                             'to': str(to_name),
                             'transformation': dict(serialized_transformation),
-                            **_other,
+                            **__other,
                         }:
-                            transformations[from_name, to_name] = (
-                                EuclideanTransformation.deserialize(
-                                    serialized_transformation
-                                )
+                            result = EuclideanTransformation.deserialize(
+                                serialized_transformation
                             )
+
+                            if result is None:
+                                raise serialization.DeserializeError(
+                                    f'Invalid transformation encoding encountered: {serialized_transformation}'
+                                )
+
+                            transformations[from_name, to_name] = result
 
                         case other:
                             raise serialization.DeserializeError(
@@ -250,7 +255,7 @@ def _static_transformations(
     tags = configuration.tags
     wall_names = ['marker' + str(tags[i]) for i in range(6)]
 
-    result = {}
+    result: dict[tuple[str, str], EuclideanTransformation] = {}
 
     result.update(
         {

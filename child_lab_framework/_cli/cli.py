@@ -1,7 +1,7 @@
 from contextlib import ContextDecorator
 from pathlib import Path
 from types import TracebackType
-from typing import Never, Self
+from typing import Literal, Self
 
 import click
 import torch
@@ -30,8 +30,8 @@ class click_trap(ContextDecorator):
         _exception_kind: type | None,
         exception: Exception | None,
         _traceback: TracebackType | None,
-        **_,
-    ) -> bool | Never:
+        **_: object,
+    ) -> Literal[False]:
         if exception is not None:
             raise click.ClickException(str(exception))
 

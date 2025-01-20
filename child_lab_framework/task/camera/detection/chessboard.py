@@ -1,3 +1,4 @@
+import typing
 from dataclasses import dataclass
 
 import cv2 as opencv
@@ -85,7 +86,7 @@ class Detector:
         grayscale_frame = opencv.cvtColor(frame, opencv.COLOR_RGB2GRAY)
         properties = self.properties
 
-        found, corners_dirty = opencv.findChessboardCorners(  # type: ignore
+        found, corners_dirty = opencv.findChessboardCorners(
             grayscale_frame,
             (self.inner_corners_per_row, self.inner_corners_per_column),
             None,
@@ -94,12 +95,14 @@ class Detector:
         if not found:
             return None
 
-        corners: list[FloatArray2] = opencv.cornerSubPix(  # type: ignore
+        corners_dirty = opencv.cornerSubPix(
             grayscale_frame,
             corners_dirty,
             (11, 11),
             (-1, -1),
             self.termination_criteria,
         )
+
+        corners = typing.cast(list[FloatArray2], corners_dirty)
 
         return Result(np.stack(corners), properties)

@@ -11,7 +11,7 @@ from ...typing.array import FloatArray1, FloatArray2
 from .. import serialization
 from ..calibration import Calibration
 
-Shape = TypeVar('Shape', bound=tuple)
+Shape = TypeVar('Shape', bound=tuple[int, ...])
 
 
 class Transformation(ABC):
@@ -26,7 +26,9 @@ class Transformation(ABC):
             return self.rotation @ input + self.translation  # type: ignore
 
         translation = np.squeeze(self.translation)  # TODO: get rid of this operation
-        return np.einsum('...j,ij->...i', input, self.rotation) + translation
+        result = np.einsum('...j,ij->...i', input, self.rotation) + translation
+
+        return typing.cast(np.ndarray[Shape, DataType], result)
 
     @property
     @abstractmethod
@@ -61,7 +63,10 @@ class Transformation(ABC):
                 f'Expected {subclass_name} to subtype Transformation, got {type(subclass)}'
             )
 
-        return subclass.deserialize(data)
+        result = subclass.deserialize(data)
+        assert isinstance(result, Transformation | None)  # mypy cannot infer this
+
+        return result
 
 
 @dataclass(frozen=True)
@@ -75,7 +80,7 @@ class EuclideanTransformation(Transformation):
         inverse_translation = -inverse_rotation @ self.translation
         return EuclideanTransformation(inverse_rotation, inverse_translation)
 
-    def __matmul__(self, other: 'Transformation') -> 'Transformation':
+    def __matmul__(self, other: 'Transformation') -> 'EuclideanTransformation':
         return EuclideanTransformation(
             *_combine(
                 other.rotation,
@@ -187,9 +192,6 @@ class ProjectiveTransformation(Transformation):
                 **_rest,
             }:
                 calibration = Calibration.deserialize(maybe_calibration)
-
-                if calibration is None:
-                    return None
 
                 return cls(
                     np.array(
