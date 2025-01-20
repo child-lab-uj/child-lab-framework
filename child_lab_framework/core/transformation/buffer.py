@@ -8,7 +8,7 @@ from more_itertools.more import filter_map
 from .. import serialization
 from . import Transformation
 from .error import reprojection_error as _reprojection_error
-from .interface import ProjectableAndTransformable
+from .interface import ProjectableAndTransformable, Unprojectable
 
 
 # T appears both as a method argument and return type, therefore it must be invariant.
@@ -35,7 +35,7 @@ class Buffer[T: Hashable]:
 
     @property
     def connected(self) -> bool:
-        return nx.is_connected(self.__connections.to_undirected(as_view=True))
+        return nx.is_connected(self.__connections.to_undirected(as_view=True))  # type: ignore  # we can safely assume this returns bool
 
     @property
     def frames_of_reference(self) -> frozenset[T]:
@@ -45,7 +45,7 @@ class Buffer[T: Hashable]:
 
     @property
     def connections(self) -> 'nx.DiGraph[T]':
-        return nx.restricted_view(self.__connections, [], [])
+        return nx.restricted_view(self.__connections, [], [])  # type: ignore[no-untyped-call, no-any-return]  # XD
 
     def add_frame_of_reference(self, name: T) -> Self:
         self.__frames_of_reference.add(name)
@@ -76,6 +76,8 @@ class Buffer[T: Hashable]:
     def __getitem__(self, from_to: tuple[T, T]) -> Transformation | None:
         connections = self.__connections
 
+        maybe_result: Transformation | None
+
         match connections.get_edge_data(*from_to):
             case {'transformation': transformation} if isinstance(
                 transformation, Transformation
@@ -105,9 +107,10 @@ class Buffer[T: Hashable]:
         self.__frames_of_reference.add(from_to[0])
         self.__frames_of_reference.add(from_to[1])
 
+        assert isinstance(transformation, Transformation)  # mypy cannot infer this
         return transformation
 
-    def reprojection_error[U: ProjectableAndTransformable](
+    def reprojection_error[U: ProjectableAndTransformable[Unprojectable[object]]](
         self,
         evaluated_frame: T,
         referential_frame: T,
@@ -120,7 +123,9 @@ class Buffer[T: Hashable]:
 
         return _reprojection_error(evaluated_object, referential_object, transformation)
 
-    def update_transformation_if_better[U: ProjectableAndTransformable](
+    def update_transformation_if_better[
+        U: ProjectableAndTransformable[Unprojectable[object]]
+    ](
         self,
         from_frame: T,
         to_frame: T,
@@ -196,7 +201,7 @@ class Buffer[T: Hashable]:
                             f'Expected all frames of reference identifiers to be the same type, got types: {other}'
                         )
 
-                frames_of_reference: set[Hashable] = set(encoded_frames_of_reference)  # type: ignore
+                frames_of_reference: set[Hashable] = set(encoded_frames_of_reference)  # type: ignore  # TODO (Issue #124)
                 transformations: dict[tuple[Hashable, Hashable], Transformation] = {}
 
                 for key, value in encoded_transformations.items():
@@ -227,7 +232,7 @@ class Buffer[T: Hashable]:
                     strict_check=strict_check,
                 )
 
-                connections = nx.DiGraph()
+                connections: 'nx.DiGraph[Hashable]' = nx.DiGraph()
 
                 for from_to, transformation in transformations.items():
                     connections.add_edge(*from_to, transformation=transformation)

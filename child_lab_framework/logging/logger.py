@@ -13,14 +13,14 @@ class Logger:
 
     @staticmethod
     def info(*args: Representable, title: str = 'Info') -> None:
-        title = colorama.Fore.GREEN + f'[{title}]:' + colorama.Fore.RESET
+        title = colorama.Fore.GREEN + f'[{title}]:' + colorama.Fore.RESET  # type: ignore[operator, attr-defined, assignment]
 
         with Logger.LOCK:
             print(title, *args, flush=True)
 
     @staticmethod
     def error(*args: Representable, title: str = 'Error') -> None:
-        title = colorama.Fore.RED + f'[{title}]:' + colorama.Fore.RESET
+        title = colorama.Fore.RED + f'[{title}]:' + colorama.Fore.RESET  # type: ignore[operator, attr-defined, assignment]
 
         with Logger.LOCK:
             print(title, *args, flush=True)

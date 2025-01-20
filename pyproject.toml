@@ -22,6 +22,8 @@ depth-pro = { git = "https://github.com/child-lab-uj/depth-pro.git" }
 click = "^8.1.7"
 more-itertools = "^10.5.0"
 kornia = "^0.7.4"
+types-tqdm = "^4.67.0.20241221"
+types-networkx = "^3.4.2.20241227"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.26.1"
@@ -43,9 +45,35 @@ quote-style = "single"
 indent-style = "space"
 docstring-code-format = true
 
+[tool.mypy]
+packages = ["child_lab_framework"]
+exclude = ["venv"]
+incremental = true
+strict = true
+allow_untyped_globals = false
+disallow_any_expr = false
+disallow_any_unimported = true
+disallow_any_decorated = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_defs = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+implicit_optional = false
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unreachable = true
+follow_untyped_imports = true
+
+[tool.mypy-networkx]
+ignore_missing_imports = true
+
+
 [tool.poe.tasks]
 format = "ruff format"
 lint = "ruff check"
+check = "mypy --config-file pyproject.toml"
 build_whl = "poetry build"
 install_whl = "pip install --force-reinstall dist/*.whl"
 prepare = ["build_whl", "install_whl"]

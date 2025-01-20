@@ -1929,6 +1929,48 @@ tests = ["autopep8", "flake8", "isort", "llnl-hatchet", "numpy", "pytest", "scip
 tutorials = ["matplotlib", "pandas", "tabulate"]
 
 [[package]]
+name = "types-networkx"
+version = "3.4.2.20241227"
+description = "Typing stubs for networkx"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "types_networkx-3.4.2.20241227-py3-none-any.whl", hash = "sha256:adb0e3f0a16c1481a2cfa97772a0b925b220dcf857f0def1c5ab4c4f349e309d"},
+    {file = "types_networkx-3.4.2.20241227.tar.gz", hash = "sha256:6c3be0ed31a7828d713d374017cee91bc23df1d90d81ed434d1952c9a653cfd7"},
+]
+
+[package.dependencies]
+numpy = ">=1.20"
+
+[[package]]
+name = "types-requests"
+version = "2.32.0.20241016"
+description = "Typing stubs for requests"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "types-requests-2.32.0.20241016.tar.gz", hash = "sha256:0d9cad2f27515d0e3e3da7134a1b6f28fb97129d86b867f24d9c726452634d95"},
+    {file = "types_requests-2.32.0.20241016-py3-none-any.whl", hash = "sha256:4195d62d6d3e043a4eaaf08ff8a62184584d2e8684e9d2aa178c7915a7da3747"},
+]
+
+[package.dependencies]
+urllib3 = ">=2"
+
+[[package]]
+name = "types-tqdm"
+version = "4.67.0.20241221"
+description = "Typing stubs for tqdm"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "types_tqdm-4.67.0.20241221-py3-none-any.whl", hash = "sha256:a1f1c9cda5c2d8482d2c73957a5398bfdedda10f6bc7b3b4e812d5c910486d29"},
+    {file = "types_tqdm-4.67.0.20241221.tar.gz", hash = "sha256:e56046631056922385abe89aeb18af5611f471eadd7918a0ad7f34d84cd4c8cc"},
+]
+
+[package.dependencies]
+types-requests = "*"
+
+[[package]]
 name = "typing-extensions"
 version = "4.12.2"
 description = "Backported and Experimental Type Hints for Python 3.8+"
@@ -2045,4 +2087,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "4afe4b1b432dc606a8ad999ac46e4175ce9cba80f4f0994cfac34facc2ec696f"
+content-hash = "6295b5a2f4149f987e72284d1f8c79dbaf9928ad3edec8efa32bc0b1104992e7"

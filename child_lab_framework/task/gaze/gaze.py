@@ -15,7 +15,7 @@ from ...core.algebra import normalized_3d
 from ...core.calibration import Calibration
 from ...core.stream import InvalidArgumentException
 from ...core.transformation import Transformation
-from ...core.video import Frame, Properties
+from ...core.video import Properties
 from ...postprocessing.imputation import (
     imputed_with_zeros_reference,
 )
@@ -28,6 +28,7 @@ from ...typing.array import (
     IntArray1,
 )
 from ...typing.stream import Fiber
+from ...typing.video import Frame
 from ...util import MODELS_DIR as MODELS_ROOT
 from .. import face, visualization
 
@@ -157,7 +158,7 @@ class Result3d:
             actor_unknown_time = time[negative_time_mask]
 
             interpolated_values = np.squeeze(
-                scipy.interpolate.krogh_interpolate(
+                scipy.interpolate.krogh_interpolate(  # type: ignore[no-untyped-call]
                     actor_known_time, actor_results, actor_unknown_time
                 )
             )

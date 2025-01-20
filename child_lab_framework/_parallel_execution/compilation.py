@@ -14,7 +14,7 @@ def stream_identifier_bindings(components: Iterable[str], tabs: int) -> str:
     )
 
 
-def main_loop_header(flow: nx.DiGraph, tabs: int) -> str:
+def main_loop_header(flow: 'nx.DiGraph[str]', tabs: int) -> str:
     indent = '\t' * tabs
 
     checked_inputs = (
@@ -31,14 +31,14 @@ def packet_of_dependencies_to_send(component: str, dependencies: Iterable[str]) 
 
 
 def main_loop_body(
-    flow: nx.DiGraph,
-    dependencies: nx.DiGraph,
+    flow: 'nx.DiGraph[str]',
+    dependencies: 'nx.DiGraph[str]',
     tabs: int,
 ) -> str:
     indent = '\t' * tabs
 
     dependency_layers: list[list[str]] = []
-    independent_nodes = []
+    independent_nodes: list[str] = []
 
     for node in nx.topological_sort(flow):
         if flow.in_degree(node) == 0:
@@ -71,8 +71,8 @@ def main_loop_body(
 
 
 def compiled_flow(
-    flow: nx.DiGraph,
-    dependencies: nx.DiGraph,
+    flow: 'nx.DiGraph[str]',
+    dependencies: 'nx.DiGraph[str]',
     *,
     function_name: str = '__step',
 ) -> CodeType:

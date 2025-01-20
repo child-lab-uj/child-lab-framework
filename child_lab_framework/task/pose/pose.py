@@ -18,12 +18,13 @@ from ultralytics.engine import results as yolo
 from ...core.calibration import Calibration
 from ...core.geometry import area_broadcast
 from ...core.transformation import Transformation
-from ...core.video import Frame, Properties
+from ...core.video import Properties
 from ...postprocessing.imputation import (
     imputed_with_closest_known_reference,
 )
 from ...typing.array import FloatArray1, FloatArray2, FloatArray3, IntArray1
 from ...typing.stream import Fiber
+from ...typing.video import Frame
 from ...util import MODELS_DIR
 from .. import visualization
 from .duplication import deduplicated
@@ -187,7 +188,7 @@ class Result:
                 if confidence < threshold:
                     continue
 
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)  # type: ignore
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
 
         return frame
 
@@ -276,10 +277,15 @@ class Estimator:
         self.max_detections = max_detections
         self.threshold = threshold
 
-        self.model = ultralytics.YOLO(model=self.MODEL_PATH, task='pose', verbose=False)
-        self.to_model = Compose(
+        self.model = ultralytics.YOLO(  # type: ignore[no-untyped-call]
+            model=self.MODEL_PATH,
+            task='pose',
+            verbose=False,
+        )
+
+        self.to_model = Compose(  # type: ignore[no-untyped-call]
             [
-                Resize((640, 640), interpolation=InterpolationMode.NEAREST),
+                Resize((640, 640), interpolation=InterpolationMode.NEAREST),  # type: ignore[no-untyped-call]
             ]
         )
 
@@ -327,10 +333,15 @@ class Estimator:
         if boxes is None or keypoints is None:
             return None
 
-        if boxes.data.nelement() == 0 or keypoints.data.nelement() == 0:  # type: ignore # obvious that these are tensors :v
+        boxes_data: torch.Tensor = typing.cast(torch.Tensor, boxes.data)
+        keypoints_data: torch.Tensor = typing.cast(torch.Tensor, keypoints.data)
+
+        if boxes_data.nelement() == 0 or keypoints_data.nelement() == 0:
             return None
 
         boxes, keypoints = deduplicated(boxes, keypoints, self.max_detections)
+        boxes_data = typing.cast(torch.Tensor, boxes.data)
+        keypoints_data = typing.cast(torch.Tensor, keypoints.data)
 
         n_detections = len(boxes)
         actors = [Actor.ADULT for _ in range(n_detections)]
@@ -338,8 +349,8 @@ class Estimator:
         if (i := self.__detect_child(boxes)) is not None:
             actors[i] = Actor.CHILD
 
-        boxes_cpu = typing.cast(BatchedBoxes, boxes.data.cpu().numpy())  # type: ignore
-        keypoints_cpu = typing.cast(BatchedKeypoints, keypoints.data.cpu().numpy())  # type: ignore
+        boxes_cpu = typing.cast(BatchedBoxes, boxes_data.cpu().numpy())
+        keypoints_cpu = typing.cast(BatchedKeypoints, keypoints_data.cpu().numpy())
 
         height_rescale = float(self.input.height) / 640.0
         width_rescale = float(self.input.width) / 640.0

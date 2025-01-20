@@ -1,4 +1,5 @@
 import os
+import typing
 from itertools import repeat
 from pathlib import Path
 
@@ -230,6 +231,9 @@ def main(
         window_right_depths = [window_right_depth for _ in range(n_frames)]
         Logger.info('Done!')
 
+        window_left_to_ceiling = None
+        window_right_to_ceiling = None
+
         if dynamic_transformations:
             Logger.info('Estimating transformations...')
             window_left_to_ceiling = (
@@ -334,11 +338,16 @@ def main(
         Logger.info('Visualizing results...')
 
         if not dynamic_transformations:
-            window_left_to_ceiling = repeat(
-                transformation_buffer['window_left', 'ceiling']
+            # Those variables are going to be used as if they were list;
+            # tricking the type-checker saves a lot of boilerplate
+
+            window_left_to_ceiling = typing.cast(
+                list[transformation.Transformation],
+                repeat(transformation_buffer['window_left', 'ceiling']),
             )
-            window_right_to_ceiling = repeat(
-                transformation_buffer['window_right', 'ceiling']
+            window_right_to_ceiling = typing.cast(
+                list[transformation.Transformation],
+                repeat(transformation_buffer['window_right', 'ceiling']),
             )
 
         ceiling_projection_annotated_frames = ceiling_visualizer.annotate_batch(
@@ -351,7 +360,7 @@ def main(
                 else None
                 for p, t in zip(
                     window_left_poses or [],
-                    window_left_to_ceiling or [],  # type: ignore  # window_left_to_ceiling identifier always exists at this point
+                    window_left_to_ceiling or [],
                 )
             ],
             [
@@ -362,7 +371,7 @@ def main(
                 else None
                 for p, t in zip(
                     window_right_poses or [],
-                    window_right_to_ceiling or [],  # type: ignore  # window_right_to_ceiling identifier always exists at this point
+                    window_right_to_ceiling or [],
                 )
             ],
         )

@@ -152,9 +152,6 @@ class Result:
             thickness = configuration.marker_axis_thickness
 
             for transformation in self.transformations:
-                if transformation is None:
-                    continue
-
                 opencv.drawFrameAxes(
                     frame,
                     intrinsics,

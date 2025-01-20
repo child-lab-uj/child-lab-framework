@@ -1,3 +1,4 @@
+import typing
 from enum import IntEnum
 from typing import Literal
 
@@ -36,7 +37,7 @@ def rotation_matrix(angle: float, axis: Axis) -> FloatArray2:
 def euler_angles_from_rotation_matrix(
     rotation: FloatArray2,
 ) -> np.ndarray[tuple[Literal[3]], np.dtype[np.float32]]:
-    return (
+    return (  # type: ignore[no-any-return]
         Rotation.from_matrix(rotation).as_euler('xyz', degrees=False).astype(np.float32)
     )
 
@@ -44,16 +45,16 @@ def euler_angles_from_rotation_matrix(
 def rotation_matrix_from_euler_angles(
     angles: np.ndarray[tuple[Literal[3]], np.dtype[np.float32]],
 ) -> FloatArray2:
-    return Rotation.from_euler('xyz', angles, degrees=False).as_matrix()
+    return Rotation.from_euler('xyz', angles, degrees=False).as_matrix()  # type: ignore[no-any-return]
 
 
 def normalized(vecs: FloatArray2) -> FloatArray2:
-    norm = np.linalg.norm(vecs, ord=2.0, axis=1)
+    norm: FloatArray1 = np.linalg.norm(vecs, ord=2.0, axis=1)
     return vecs / norm
 
 
 def normalized_3d(batched_vecs: FloatArray3) -> FloatArray3:
-    norm = np.linalg.norm(batched_vecs, ord=2.0, axis=2)[:, :, np.newaxis]
+    norm: FloatArray3 = np.linalg.norm(batched_vecs, ord=2.0, axis=2)[:, :, np.newaxis]
     return batched_vecs / norm
 
 
@@ -112,12 +113,12 @@ def kabsch(
     ut: FloatArray2 = decomposition.U.T
     v: FloatArray2 = decomposition.Vh.T
 
-    rotation: FloatArray2 = v @ ut
+    rotation = typing.cast(FloatArray2, v @ ut)
 
     # special reflection case
     if np.linalg.det(rotation) < 0.0:
         v[:, -1] *= -1.0
-        rotation: FloatArray2 = v @ ut
+        rotation = typing.cast(FloatArray2, v @ ut)
 
     translation: FloatArray2 = -rotation @ from_center + to_center
 

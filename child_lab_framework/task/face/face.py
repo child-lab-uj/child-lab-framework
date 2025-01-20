@@ -75,7 +75,7 @@ class Estimator:
             nms_threshold=suppression_threshold,
         ).to(device)
 
-    @torch.no_grad
+    @torch.no_grad()
     def predict(self, frame: Frame, poses: pose.Result) -> Result | None:
         detections = self.detector.forward(
             torch.tensor(frame)
@@ -91,7 +91,7 @@ class Estimator:
 
         return self.__match_faces_with_actors(detection, poses)
 
-    @torch.no_grad
+    @torch.no_grad()
     def predict_batch(
         self,
         frames: list[Frame],
@@ -162,10 +162,10 @@ class Estimator:
         boxes_and_confidences[which_actors, :4] = faces[which_faces, :4]
         boxes_and_confidences[which_actors, 4] = faces[which_faces, 14]
 
-        boxes_and_confidences = boxes_and_confidences.cpu().numpy()
+        boxes_and_confidences_numpy = boxes_and_confidences.cpu().numpy()
 
-        result_boxes = boxes_and_confidences[..., :4]
-        result_confidences = boxes_and_confidences[..., 4]
+        result_boxes = boxes_and_confidences_numpy[..., :4]
+        result_confidences = boxes_and_confidences_numpy[..., 4]
 
         return Result(result_boxes, result_confidences)
 

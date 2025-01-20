@@ -6,11 +6,12 @@ import torch
 from depth_pro import Config, DepthPro
 from torchvision.transforms import Compose, ConvertImageDtype, Normalize, Resize
 
-from ...core.video import Frame, Properties
+from ...core.video import Properties
 from ...logging import Logger
 from ...postprocessing.imputation import imputed_with_closest_known_reference
 from ...typing.array import FloatArray2
 from ...typing.stream import Fiber
+from ...typing.video import Frame
 from ...util import MODELS_DIR
 
 
@@ -50,10 +51,10 @@ class Estimator:
 
         Logger.info('Depth model created')
 
-        self.to_model = Compose(
+        self.to_model = Compose(  # type: ignore[no-untyped-call]
             [
                 ConvertImageDtype(torch.half),
-                Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+                Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),  # type: ignore[no-untyped-call]
             ]
         )
 
@@ -73,11 +74,11 @@ class Estimator:
 
         # TODO: return the tensor itself without transferring (Issue #6)
         result = self.model.predict(input, focal_length)
-        depth = (
-            Resize((properties.height, properties.width))
+        depth: FloatArray2 = (
+            Resize((properties.height, properties.width))  # type: ignore[no-untyped-call]
             .forward(result.depth)
             .to(torch.float32)
-            .mul(1000.0)  # convert from metres to millimetres
+            .mul(1000.0)
             .cpu()
             .numpy()
         )
