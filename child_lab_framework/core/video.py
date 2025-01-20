@@ -19,7 +19,7 @@ class Format(Enum):
     MP4 = 'mp4v'
 
 
-@dataclass(frozen=True, repr=False)
+@dataclass(frozen=False, repr=False)
 class Properties:
     name: str
     length: int

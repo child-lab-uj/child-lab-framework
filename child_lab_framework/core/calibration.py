@@ -7,7 +7,7 @@ from ..typing.array import FloatArray1, FloatArray2, FloatArray3
 from . import serialization
 
 
-@dataclass(unsafe_hash=True, frozen=True, repr=False)
+@dataclass(unsafe_hash=True, frozen=False, repr=False)
 class Calibration:
     optical_center: tuple[float, float]
     focal_length: tuple[float, float]

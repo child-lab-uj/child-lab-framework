@@ -207,7 +207,7 @@ class Detector:
         corners, ids, _rejected = self.detector.detectMarkers(frame)  # type: ignore # Please never write return types as protocols ;__;
 
         if len(corners) == 0 or len(ids) == 0:
-            return None
+            return None, None
 
         calibration = self.calibration
 
@@ -232,6 +232,18 @@ class Detector:
             for camera_coordinates in marker_camera_coordinates
         ]
 
+        results_ulep = [
+            opencv.solvePnP(
+                marker_rigid_coordinates,
+                camera_coordinates,
+                calibration.intrinsics,
+                calibration.distortion,
+                useExtrinsicGuess=True,
+                flags=opencv.SOLVEPNP_IPPE_SQUARE,
+            )
+            for camera_coordinates in corners
+        ]
+
         transformations = [
             transformation.ProjectiveTransformation(
                 rotation,
@@ -241,4 +253,16 @@ class Detector:
             for rotation, translation in results
         ]
 
-        return Result(np.stack(corners), ids, transformations)
+        transformations_ulep = [
+            transformation.ProjectiveTransformation(
+                opencv.Rodrigues(rotation)[0],
+                np.squeeze(translation),
+                calibration,
+            )
+            for _, rotation, translation in results_ulep
+        ]
+
+        return (  # type: ignore
+            Result(np.stack(corners), ids, transformations),
+            Result(np.stack(corners), ids, transformations_ulep),
+        )
