@@ -3,55 +3,34 @@ name: CI
 on: pull_request
 
 jobs:
-  poetry:
-    name: Build project
+  build:
+    name: Build and check the project
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up python
-        id: setup-python
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"  # Invalidate the cache if the lockfile has changed
+
+      # According to the docs, this solution can be faster than `uv python install`
+      # because of the external caching performed by GitHub.
+      - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version-file: ".python-version"
 
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-          installer-parallel: true
-
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
-
-      - name: Install dependencies
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction --no-root
-
-      - name: Install project
-        run: poetry install --no-interaction
-
-  ruff:
-    name: Check project with Ruff
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - name: Install the project
+        run: uv sync --all-extras --dev
 
       - name: Check format
-        uses: astral-sh/ruff-action@v1.1.0
-        with:
-          args: format --check
+        run: uv run ruff format --check
 
-      - name: Lint
-        uses: astral-sh/ruff-action@v1.1.0
-        with:
-          args: check
+      - name: Check lints
+        run: uv run ruff check
 
   typos:
     name: Check typos
