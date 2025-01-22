@@ -1,3 +1,4 @@
+import typing
 from pathlib import Path
 
 import cv2
@@ -8,7 +9,7 @@ from ..core.calibration import Calibration
 from ..core.video import Format, Input, Reader, Writer
 from ..task.camera.detection import chessboard
 from ..task.visualization import Configuration, Visualizer
-from ..typing.array import FloatArray2, FloatArray3
+from ..typing.array import FloatArray1, FloatArray2, FloatArray3
 
 
 # TODO: Implement procedures as classes with `Iterable` protocol
@@ -80,13 +81,15 @@ def run(
             f'At least 10 detections are required to perform calibration but only {n_detections} succeeded'
         )
 
-    success, intrinsics, distortion, *_ = cv2.calibrateCamera(
+    success, intrinsics, distortion_dirty, *_ = cv2.calibrateCamera(
         object_points,
         image_points,
         (video_properties.width, video_properties.height),
-        None,  # type: ignore  # Opencv API...
-        None,  # type: ignore
+        np.eye(3, 3, dtype=np.float32),
+        np.zeros(5, dtype=np.float32),
     )
+
+    distortion = typing.cast(FloatArray1, np.squeeze(distortion_dirty))
 
     if not success:
         raise RuntimeError('OpenCV procedure ended unsuccessfully')
@@ -95,5 +98,5 @@ def run(
     return Calibration(
         optical_center=(float(intrinsics[0, 2]), float(intrinsics[1, 2])),
         focal_length=(float(intrinsics[0, 0]), float(intrinsics[1, 1])),
-        distortion=np.squeeze(distortion),
+        distortion=distortion,
     )

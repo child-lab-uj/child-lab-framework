@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from types import TracebackType
-from typing import IO, Protocol
+from typing import IO, Literal, Protocol
 
 import yaml
 
@@ -110,8 +110,8 @@ class File:
         _exception_kind: type[Exception] | None,
         _exception: Exception | None,
         traceback: TracebackType | None,
-        **_,
-    ) -> bool:
+        **_: object,
+    ) -> Literal[False]:
         if self._io is not None:
             self._io.close()
 
@@ -133,14 +133,15 @@ class Yaml:
     _io: IO[str]
 
     def read(self) -> dict[str, serialization.Value]:
-        data = yaml.safe_load(self._io)
+        data = yaml.safe_load(self._io)  # type: ignore[no-untyped-call]
 
+        # TODO: use the type guard explicitly to not confuse the type checker
         serialization.assert_proper_serialization(data)
 
-        return data
+        return data  # type: ignore[no-any-return]  # guaranteed to contain valid value
 
     def write(self, data: dict[str, serialization.Value]) -> None:
-        yaml.safe_dump(data, self._io)
+        yaml.safe_dump(data, self._io)  # type: ignore[no-untyped-call]
 
 
 @dataclass
@@ -150,9 +151,10 @@ class Json:
     def read(self) -> dict[str, serialization.Value]:
         data = json.load(self._io)
 
+        # TODO: use the type guard explicitly to not confuse the type checker
         serialization.assert_proper_serialization(data)
 
-        return data
+        return data  # type: ignore[no-any-return]  # guaranteed to contain valid value
 
     def write(self, data: dict[str, serialization.Value]) -> None:
         json.dump(data, self._io)

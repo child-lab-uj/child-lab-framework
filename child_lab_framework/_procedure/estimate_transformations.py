@@ -120,9 +120,6 @@ def run(
 
             id: int
             for id, marker_transformation in zip(markers.ids, markers.transformations):
-                if marker_transformation is None:
-                    continue
-
                 buffer[f'{MARKER_PREFIX}_{int(id)}', reader.input.name] = (
                     marker_transformation
                 )

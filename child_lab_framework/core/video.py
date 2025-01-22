@@ -203,7 +203,7 @@ class Reader:
         yield None  # workaround for codegen adding `await asend(None)` upon opening each stream
 
         while decoder.isOpened():
-            batch: list[Frame] | None = []
+            batch: list[Frame] = []
 
             success = False
 

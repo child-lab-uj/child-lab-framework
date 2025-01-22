@@ -3,8 +3,9 @@ from collections.abc import Sequence
 from functools import reduce
 from itertools import repeat, starmap
 
-from ...core.video import Frame, Properties
+from ...core.video import Properties
 from ...typing.stream import Fiber
+from ...typing.video import Frame
 from .configuration import Configuration
 
 
@@ -85,4 +86,4 @@ class Visualizer[T: Configuration]:
                     annotated_frames = frames
 
                 case _:
-                    annotated_frames = None
+                    annotated_frames = None  # type: ignore[unreachable]
