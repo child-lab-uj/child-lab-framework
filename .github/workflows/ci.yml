@@ -32,6 +32,9 @@ jobs:
       - name: Check lints
         run: uv run ruff check
 
+      - name: Check types
+        run: uv run mypy . --config-file pyproject.toml
+
   typos:
     name: Check typos
     runs-on: ubuntu-latest
