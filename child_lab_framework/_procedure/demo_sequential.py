@@ -213,6 +213,8 @@ def main(
             Logger.error('window_right_poses == None')
 
         Logger.info('Estimating depth...')
+        ceiling_depths = depth_estimator.predict_batch(ceiling_frames, ceiling_properties)
+
         ceiling_depth = depth_estimator.predict(
             ceiling_frames[0],
             ceiling_properties,
@@ -226,7 +228,6 @@ def main(
             window_right_properties,
         )
 
-        ceiling_depths = [ceiling_depth for _ in range(n_frames)]
         window_left_depths = [window_left_depth for _ in range(n_frames)]
         window_right_depths = [window_right_depth for _ in range(n_frames)]
         Logger.info('Done!')
@@ -318,6 +319,7 @@ def main(
             imputed_with_closest_known_reference(
                 ceiling_gaze_estimator.predict_batch(
                     ceiling_poses,
+                    ceiling_depths,
                     window_left_gazes,
                     window_right_gazes,
                     None,

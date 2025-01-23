@@ -7,6 +7,8 @@ from itertools import repeat, starmap
 import cv2
 import numpy as np
 
+from child_lab_framework.task.gaze import ceiling_head_baseline
+
 from ...core import transformation
 from ...core.stream import InvalidArgumentException
 from ...core.transformation import Transformation
@@ -35,12 +37,19 @@ class Result:
     directions: FloatArray2
     was_corrected: BoolArray1
 
+    head_baseline: ceiling_head_baseline.Result | None
+
     def visualize(
         self,
         frame: Frame,
         frame_properties: Properties,
         configuration: visualization.Configuration,
     ) -> Frame:
+        if self.head_baseline is not None:
+            self.head_baseline.visualize(frame, frame_properties, configuration)
+
+        return frame
+
         starts = self.centres
         ends = starts + float(configuration.gaze_line_length) * self.directions
 
@@ -92,6 +101,7 @@ class Estimator:
     def predict(
         self,
         ceiling_pose: pose.Result,
+        ceiling_depth: FloatArray2,
         window_left_gaze: gaze.Result3d | None,
         window_right_gaze: gaze.Result3d | None,
         window_left_to_ceiling: Transformation | None,
@@ -113,6 +123,13 @@ class Estimator:
             face_keypoint_threshold=0.4,
         )
 
+        head_baseline = ceiling_head_baseline.estimate(
+            ceiling_pose,
+            ceiling_depth,
+            0.70,
+            50.0,
+        )
+
         correct_from_left = (
             window_left_gaze is not None and window_left_to_ceiling is not None
         )
@@ -123,13 +140,15 @@ class Estimator:
 
         correction_count = int(correct_from_left) + int(correct_from_right)
 
+        return Result(
+            centres,
+            directions,
+            np.array([False for _ in range(len(centres))]),
+            head_baseline,
+        )
+
         if correction_count == 0:
             Logger.info('Skipped correction')
-            return Result(
-                centres,
-                directions,
-                np.array([False for _ in range(len(centres))]),
-            )
 
         # slicing gaze direction arrays is a heuristic workaround for a lack of exact actor matching between cameras
         # assuming there are only two actors in the world.
@@ -160,11 +179,13 @@ class Estimator:
             np.array(
                 [correct_from_right, correct_from_left]
             ),  # assumption about two actors...
+            head_baseline,
         )
 
     def predict_batch(
         self,
         ceiling_poses: list[pose.Result],
+        ceiling_depths: list[FloatArray2],
         window_left_gazes: list[gaze.Result3d] | None,
         window_right_gazes: list[gaze.Result3d] | None,
         window_left_to_ceiling: list[Transformation] | None,
@@ -175,6 +196,7 @@ class Estimator:
                 self.predict,
                 zip(
                     ceiling_poses,
+                    ceiling_depths,
                     window_left_gazes or repeat(None),
                     window_right_gazes or repeat(None),
                     window_left_to_ceiling or repeat(None),
@@ -186,6 +208,7 @@ class Estimator:
     def __predict_safe(
         self,
         ceiling_pose: pose.Result | None,
+        ceiling_depth: FloatArray2,
         window_left_gaze: gaze.Result3d | None,
         window_right_gaze: gaze.Result3d | None,
         window_left_to_ceiling: Transformation | None,
@@ -196,6 +219,7 @@ class Estimator:
 
         return self.predict(
             ceiling_pose,
+            ceiling_depth,
             window_left_gaze,
             window_right_gaze,
             window_left_to_ceiling,
