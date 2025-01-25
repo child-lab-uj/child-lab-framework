@@ -86,6 +86,14 @@ class Estimator:
 
         return depth
 
+    def predict_batch(
+        self,
+        frames: list[Frame],
+        properties: Properties,
+    ) -> list[FloatArray2]:
+        # TODO: Implement a proper batch inference (Issue #131)
+        return [self.predict(frame, properties) for frame in frames]
+
     async def stream(self) -> Fiber[Input | None, list[FloatArray2] | None]:
         executor = self.executor
         if executor is None:
