@@ -122,6 +122,10 @@ class Estimator:
         centers = baseline_gaze.centers.copy()
         directions = baseline_gaze.directions.copy()
 
+        for i, actor in enumerate(ceiling_pose.actors):
+            if actor == pose.Actor.CHILD:
+                directions[i, :] *= -1.0
+
         correct_from_left = False
         correct_from_right = False
 

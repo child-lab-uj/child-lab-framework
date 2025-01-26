@@ -1,3 +1,3 @@
-from . import keypoint
+from . import head, keypoint
 
-__all__ = ['keypoint']
+__all__ = ['head', 'keypoint']
