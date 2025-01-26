@@ -25,6 +25,9 @@ class Configuration:
     gaze_head_baseline_mask_color: Color = (255.0, 0.0, 255.0, 1.0)
     gaze_head_baseline_mask_opacity: float = 0.6
 
+    joint_attention_confidence_threshold: float = 0.5
+    joint_attention_distribution_samples: int = 1000
+
     pose_draw_skeletons: bool = True
     pose_draw_skeletons_confidence: bool = True
     pose_bone_color: Color = (0.0, 0.0, 255.0, 1.0)
