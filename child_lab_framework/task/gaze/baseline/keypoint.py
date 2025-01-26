@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from ....core.algebra import normalized, orthogonal
+from ....core.algebra import batch_normalized, orthogonal
 from ....core.video import Properties
 from ....typing.array import FloatArray2, IntArray1
 from ....typing.video import Frame
@@ -66,7 +66,7 @@ def estimate(
     ]
 
     # convention: shoulder vector goes from left to right -> versor (calculated as [y, -x]) points to the actor's front
-    directions = normalized(orthogonal(right_shoulders - left_shoulders))
+    directions = batch_normalized(orthogonal(right_shoulders - left_shoulders))
 
     starts = np.zeros_like(directions)
 

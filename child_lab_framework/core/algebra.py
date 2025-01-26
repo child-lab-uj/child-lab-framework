@@ -48,12 +48,94 @@ def rotation_matrix_from_euler_angles(
     return Rotation.from_euler('xyz', angles, degrees=False).as_matrix()  # type: ignore[no-any-return]
 
 
-def normalized(vecs: FloatArray2) -> FloatArray2:
+def rotation_matrix_between_vectors(
+    from_vector: np.ndarray[tuple[Literal[3]], np.dtype[np.float32]],
+    to_vector: np.ndarray[tuple[Literal[3]], np.dtype[np.float32]],
+) -> np.ndarray[tuple[Literal[3], Literal[3]], np.dtype[np.float32]] | None:
+    """
+    Find a `3 x 3` rotation matrix `R` such that `R @ from_vector = to_vector`.
+
+    Parameters
+    ---
+    from_vector: np.ndarray[tuple[Literal[3]], np.dtype[np.float32]]
+        A vector to rotate into the `to_vector`.
+
+    to_vector: np.ndarray[tuple[Literal[3]], np.dtype[np.float32]]
+        A vector to rotate `from_vector` to.
+
+    Returns
+    ---
+    rotation: np.ndarray[tuple[Literal[3], Literal[3]], np.dtype[np.float32]] | None
+        A rotation matrix if such exist, `None` otherwise.
+    """
+
+    from_normalized = normalized(from_vector)
+    to_normalized = normalized(to_vector)
+
+    cross_product = np.cross(from_normalized, to_normalized)
+
+    rotation_angle_sine = np.linalg.norm(cross_product, ord=2.0)
+    rotation_angle_cosine = np.dot(from_normalized, to_normalized)
+
+    rotation_axis = cross_product / rotation_angle_sine
+    axis_matrix = np.outer(rotation_axis, rotation_axis)
+    axis_cross_product_matrix = cross_product_matrix(rotation_axis)
+
+    identity = np.eye(3, dtype=np.float32)
+
+    rotation = (
+        rotation_angle_cosine * identity
+        + (1.0 - rotation_angle_cosine) * axis_matrix
+        + rotation_angle_sine * axis_cross_product_matrix
+    )
+
+    if np.any(~np.isfinite(rotation)):
+        return None
+
+    return rotation
+
+
+def cross_product_matrix(
+    vector: np.ndarray[tuple[Literal[3]], np.dtype[np.float32]],
+) -> np.ndarray[tuple[Literal[3], Literal[3]], np.dtype[np.float32]]:
+    """
+    Compute a skew-symmetric `3 x 3` matrix `C` such that for any vector `v`, the cross product of `vector` and `v` is equal to `C @ v`.
+
+    Parameters
+    ---
+    vector: np.ndarray[tuple[Literal[3]], np.dtype[np.float32]]
+        A vector to represent as a cross-product matrix
+
+    Returns
+    ---
+    matrix: np.ndarray[tuple[Literal[3], Literal[3]], np.dtype[np.float32]]
+        A skew-symmetric `3 x 3` cross-product matrix corresponding to `vector`
+    """
+
+    x, y, z = vector
+
+    return np.array(
+        [
+            [0.0, -z, y],
+            [z, 0.0, -x],
+            [-y, x, 0.0],
+        ],
+        dtype=np.float32,
+    )
+
+
+def normalized[Shape: tuple, Type: np.generic](
+    vector: np.ndarray[Shape, np.dtype[Type]],
+) -> np.ndarray[Shape, np.dtype[Type]]:
+    return vector / np.linalg.norm(vector, ord=2.0)  # type: ignore
+
+
+def batch_normalized(vecs: FloatArray2) -> FloatArray2:
     norm: FloatArray1 = np.linalg.norm(vecs, ord=2.0, axis=1)
     return vecs / norm
 
 
-def normalized_3d(batched_vecs: FloatArray3) -> FloatArray3:
+def batch_normalized_3d(batched_vecs: FloatArray3) -> FloatArray3:
     norm: FloatArray3 = np.linalg.norm(batched_vecs, ord=2.0, axis=2)[:, :, np.newaxis]
     return batched_vecs / norm
 

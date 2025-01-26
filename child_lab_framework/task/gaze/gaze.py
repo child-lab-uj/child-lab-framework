@@ -11,7 +11,7 @@ import mini_face as mf
 import numpy as np
 import scipy
 
-from ...core.algebra import normalized_3d
+from ...core.algebra import batch_normalized_3d
 from ...core.calibration import Calibration
 from ...core.stream import InvalidArgumentException
 from ...core.transformation import Transformation
@@ -232,7 +232,7 @@ class Result3d:
 
         directions = ends - eyes
         directions_2d = directions[..., :-1]
-        directions_2d = normalized_3d(directions_2d)
+        directions_2d = batch_normalized_3d(directions_2d)
 
         return Result(eyes[..., :-1], directions_2d)
 
