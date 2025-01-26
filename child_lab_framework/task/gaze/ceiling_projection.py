@@ -15,15 +15,14 @@ from ...logging import Logger
 from ...typing.array import BoolArray1, FloatArray1, FloatArray2
 from ...typing.stream import Fiber
 from ...typing.video import Frame
-from .. import face, pose, visualization
+from .. import pose, visualization
 from . import baseline, gaze
 
 type Input = tuple[
     list[pose.Result | None] | None,
-    list[pose.Result | None] | None,
-    list[pose.Result | None] | None,
-    list[face.Result | None] | None,
-    list[face.Result | None] | None,
+    list[FloatArray2 | None] | None,
+    list[gaze.Result | None] | None,
+    list[gaze.Result | None] | None,
     list[Transformation | None] | None,
     list[Transformation | None] | None,
 ]
@@ -98,6 +97,7 @@ class Estimator:
     def predict(
         self,
         ceiling_pose: pose.Result,
+        ceiling_depth: FloatArray2 | None,
         window_left_gaze: gaze.Result3d | None,
         window_right_gaze: gaze.Result3d | None,
         window_left_to_ceiling: Transformation | None,
@@ -114,9 +114,13 @@ class Estimator:
         if window_right_to_ceiling is None:
             window_right_to_ceiling = buffer[window_right_name, window_left_name]
 
-        baseline_gaze = baseline.keypoint.estimate(
-            ceiling_pose,
-            face_keypoint_threshold=0.4,
+        baseline_gaze = (
+            ceiling_depth is not None
+            and baseline.head.estimate(ceiling_pose, ceiling_depth, 0.8)
+            or baseline.keypoint.estimate(
+                ceiling_pose,
+                face_keypoint_threshold=0.4,
+            )
         )
 
         centers = baseline_gaze.centers.copy()
@@ -183,6 +187,7 @@ class Estimator:
     def predict_batch(
         self,
         ceiling_poses: list[pose.Result],
+        ceiling_depths: list[FloatArray2] | None,
         window_left_gazes: list[gaze.Result3d] | None,
         window_right_gazes: list[gaze.Result3d] | None,
         window_left_to_ceiling: list[Transformation] | None,
@@ -193,6 +198,7 @@ class Estimator:
                 self.predict,
                 zip(
                     ceiling_poses,
+                    ceiling_depths or repeat(None),
                     window_left_gazes or repeat(None),
                     window_right_gazes or repeat(None),
                     window_left_to_ceiling or repeat(None),
@@ -204,6 +210,7 @@ class Estimator:
     def __predict_safe(
         self,
         ceiling_pose: pose.Result | None,
+        ceiling_depth: FloatArray2 | None,
         window_left_gaze: gaze.Result3d | None,
         window_right_gaze: gaze.Result3d | None,
         window_left_to_ceiling: Transformation | None,
@@ -214,6 +221,7 @@ class Estimator:
 
         return self.predict(
             ceiling_pose,
+            ceiling_depth,
             window_left_gaze,
             window_right_gaze,
             window_left_to_ceiling,
@@ -236,6 +244,7 @@ class Estimator:
             match (yield results):
                 case (
                     list(ceiling_pose),
+                    ceiling_depth,
                     window_left_gaze,
                     window_right_gaze,
                     window_left_to_ceiling,
@@ -248,6 +257,7 @@ class Estimator:
                                 self.__predict_safe,
                                 zip(
                                     ceiling_pose,
+                                    ceiling_depth or repeat(None),
                                     window_left_gaze or repeat(None),
                                     window_right_gaze or repeat(None),
                                     window_left_to_ceiling or repeat(None),

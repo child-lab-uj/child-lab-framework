@@ -20,6 +20,8 @@ from ..task.visualization import Visualizer
 
 BATCH_SIZE = 32
 
+__CHEAT_CEILING_DEPTH = False
+
 
 def main(
     inputs: tuple[Input, Input, Input],
@@ -213,10 +215,18 @@ def main(
             Logger.error('window_right_poses == None')
 
         Logger.info('Estimating depth...')
-        ceiling_depth = depth_estimator.predict(
-            ceiling_frames[0],
-            ceiling_properties,
-        )
+        if __CHEAT_CEILING_DEPTH:
+            ceiling_depth = depth_estimator.predict(
+                ceiling_frames[0],
+                ceiling_properties,
+            )
+            ceiling_depths = [ceiling_depth for _ in range(n_frames)]
+        else:
+            ceiling_depths = depth_estimator.predict_batch(
+                ceiling_frames,
+                ceiling_properties,
+            )
+
         window_left_depth = depth_estimator.predict(
             window_left_frames[0],
             window_left_properties,
@@ -226,7 +236,6 @@ def main(
             window_right_properties,
         )
 
-        ceiling_depths = [ceiling_depth for _ in range(n_frames)]
         window_left_depths = [window_left_depth for _ in range(n_frames)]
         window_right_depths = [window_right_depth for _ in range(n_frames)]
         Logger.info('Done!')
@@ -318,6 +327,7 @@ def main(
             imputed_with_closest_known_reference(
                 ceiling_gaze_estimator.predict_batch(
                     ceiling_poses,
+                    ceiling_depths,
                     window_left_gazes,
                     window_right_gazes,
                     None,
@@ -353,23 +363,25 @@ def main(
         ceiling_projection_annotated_frames = ceiling_visualizer.annotate_batch(
             ceiling_frames,
             [
-                p.unproject(window_left_properties.calibration, ceiling_depth)
-                .transform(t.inverse)
+                p.unproject(window_left_properties.calibration, d)
+                .transform(t)
                 .project(ceiling_properties.calibration)
                 if t is not None
                 else None
-                for p, t in zip(
+                for d, p, t in zip(
+                    ceiling_depths,
                     window_left_poses or [],
                     window_left_to_ceiling or [],
                 )
             ],
             [
-                p.unproject(window_right_properties.calibration, ceiling_depth)
-                .transform(t.inverse)
+                p.unproject(window_right_properties.calibration, d)
+                .transform(t)
                 .project(ceiling_properties.calibration)
                 if t is not None
                 else None
-                for p, t in zip(
+                for d, p, t in zip(
+                    ceiling_depths,
                     window_right_poses or [],
                     window_right_to_ceiling or [],
                 )
