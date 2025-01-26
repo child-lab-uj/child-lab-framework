@@ -16,7 +16,7 @@ from ...typing.array import BoolArray1, FloatArray1, FloatArray2
 from ...typing.stream import Fiber
 from ...typing.video import Frame
 from .. import face, pose, visualization
-from . import ceiling_baseline, gaze
+from . import baseline, gaze
 
 type Input = tuple[
     list[pose.Result | None] | None,
@@ -29,11 +29,14 @@ type Input = tuple[
 ]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Result:
-    centres: FloatArray2
+    centers: FloatArray2
     directions: FloatArray2
     was_corrected: BoolArray1
+
+    _baseline_gaze: visualization.Visualizable | None
+    """For visualization purposes only."""
 
     def visualize(
         self,
@@ -41,19 +44,22 @@ class Result:
         frame_properties: Properties,
         configuration: visualization.Configuration,
     ) -> Frame:
-        starts = self.centres
+        if configuration.gaze_draw_baseline and self._baseline_gaze is not None:
+            self._baseline_gaze.visualize(frame, frame_properties, configuration)
+
+        starts = self.centers
         ends = starts + float(configuration.gaze_line_length) * self.directions
 
         start: FloatArray1
         end: FloatArray1
 
-        basic_color = configuration.gaze_line_color
-        baseline_color = configuration.gaze_baseline_line_color
+        color = configuration.gaze_line_color
         thickness = configuration.gaze_line_thickness
 
-        for start, end, was_corrected in zip(starts, ends, self.was_corrected):
-            color = basic_color if was_corrected else baseline_color
-
+        for start, end in zip(
+            starts.astype(np.int32),
+            ends.astype(np.int32),
+        ):
             cv2.line(
                 frame,
                 typing.cast(cv2.typing.Point, start.astype(np.int32)),
@@ -108,10 +114,16 @@ class Estimator:
         if window_right_to_ceiling is None:
             window_right_to_ceiling = buffer[window_right_name, window_left_name]
 
-        centres, directions = ceiling_baseline.estimate(
+        baseline_gaze = baseline.keypoint.estimate(
             ceiling_pose,
             face_keypoint_threshold=0.4,
         )
+
+        centers = baseline_gaze.centers.copy()
+        directions = baseline_gaze.directions.copy()
+
+        correct_from_left = False
+        correct_from_right = False
 
         correct_from_left = (
             window_left_gaze is not None and window_left_to_ceiling is not None
@@ -126,9 +138,10 @@ class Estimator:
         if correction_count == 0:
             Logger.info('Skipped correction')
             return Result(
-                centres,
+                centers,
                 directions,
-                np.array([False for _ in range(len(centres))]),
+                np.array([False for _ in range(len(centers))]),
+                baseline_gaze,
             )
 
         # slicing gaze direction arrays is a heuristic workaround for a lack of exact actor matching between cameras
@@ -155,11 +168,12 @@ class Estimator:
             directions[0, ...] = projected_directions[0, ...]
 
         return Result(
-            centres,
+            centers,
             directions,
             np.array(
                 [correct_from_right, correct_from_left]
             ),  # assumption about two actors...
+            baseline_gaze,
         )
 
     def predict_batch(
