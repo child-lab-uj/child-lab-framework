@@ -8,7 +8,7 @@ from tqdm import trange
 from ..core import transformation
 from ..core.calibration import Calibration
 from ..core.video import Format, Input, Reader, Writer
-from ..task import depth, visualization
+from ..task import visualization
 from ..task.camera.detection import marker
 
 MARKER_PREFIX = 'marker'
@@ -55,17 +55,6 @@ def run(
         for destination, reader in zip(video_destinations, readers)
     ]
 
-    depth_destinations = [
-        dest.parent / (f'{dest.stem}_depth{dest.suffix}') for dest in video_destinations
-    ]
-
-    depth_writers = [
-        Writer(destination, reader.properties, output_format=Format.MP4)
-        for destination, reader in zip(depth_destinations, readers)
-    ]
-
-    depth_estimator = depth.Estimator(device)
-
     detector = marker.Detector(
         model=configuration.model,
         dictionary=configuration.dictionary,
@@ -90,12 +79,8 @@ def run(
         frame_progress_bar.update()
 
         views = [
-            (reader, writer, depth_writer, frame)
-            for reader, writer, depth_writer in zip(
-                readers,
-                writers,
-                depth_writers,
-            )
+            (reader, writer, frame)
+            for reader, writer in zip(readers, writers)
             if (frame := reader.read()) is not None
         ]
 
@@ -105,18 +90,16 @@ def run(
         camera_progress_bar.refresh()
         camera_progress_bar.reset()
 
-        for reader, writer, depth_writer, frame in views:
+        for reader, writer, frame in views:
             camera_progress_bar.update()
 
             detector.calibration = reader.properties.calibration
-            frame_depth = depth_estimator.predict(frame, reader.properties)
-            markers = detector.predict(frame, frame_depth)
+            markers = detector.predict(frame)
 
             if markers is None:
                 continue
 
             writer.write(visualizer.annotate(frame, markers))
-            depth_writer.write(depth.to_frame(frame_depth))
 
             id: int
             for id, marker_transformation in zip(markers.ids, markers.transformations):
