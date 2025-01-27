@@ -49,17 +49,32 @@ class click_trap(ContextDecorator):
     help="Number of chessboard's inner corners in rows and columns that calibration algorithm should locate",
 )
 @click.option(
-    '--skip',
+    '--max-samples',
     type=int,
-    help='Number of source frames to skip upon each successful read and computation',
+    required=False,
+    help='Maximal number of board samples to collect',
 )
-@click_trap()
+@click.option(
+    '--max-speed',
+    type=float,
+    required=False,
+    help='Maximal speed the board can move with to be captured, in pixels per second',
+)
+@click.option(
+    '--min-distance',
+    type=float,
+    required=False,
+    help='Minimal distance between new observation and the previous observations to be captured',
+)
+# @click_trap()
 def calibrate(
     workspace: Path,
     videos: list[Path],
     square_size: float,
     inner_board_corners: tuple[int, int],
-    skip: int,
+    max_samples: int | None,
+    max_speed: float | None,
+    min_distance: float | None,
 ) -> None:
     video_input_dir = workspace / 'input'
     calibration_output_dir = workspace / 'calibration'
@@ -86,18 +101,23 @@ def calibrate(
         video_output = video_output_dir / video
         calibration_output = calibration_output_dir / f'{video.stem}.yml'
 
-        calibration = calibration_procedure.run(
+        result = calibration_procedure.run(
             video_input,
             video_output,
             chessboard.BoardProperties(square_size, *inner_board_corners),
-            skip,
+            calibration_procedure.EliminationProperties(
+                max_samples,
+                max_speed or 700.0,
+                min_distance or 1.0,
+            ),
         )
 
-        click.echo(f'Calibration complete! Estimated parameters:\n{calibration}')
+        click.echo('Calibration complete!')
+        click.echo(f'{result}')
         click.echo(f'Saving results to {calibration_output}...')
         click.echo('')
 
-        save(calibration, calibration_output)
+        save(result.calibration, calibration_output)
 
 
 @click.command('estimate-transformations')
