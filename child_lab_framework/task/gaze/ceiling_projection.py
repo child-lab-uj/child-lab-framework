@@ -12,7 +12,7 @@ from ...core import transformation
 from ...core.stream import InvalidArgumentException
 from ...core.transformation import Transformation
 from ...core.video import Properties
-from ...typing.array import BoolArray1, FloatArray2, IntArray1
+from ...typing.array import BoolArray1, FloatArray1, FloatArray2, IntArray1
 from ...typing.stream import Fiber
 from ...typing.video import Frame
 from .. import pose, visualization
@@ -34,7 +34,9 @@ class Result:
     directions: FloatArray2
     was_corrected: BoolArray1
 
-    _baseline_gaze: visualization.Visualizable | None
+    center_depths: FloatArray1 | None = None
+
+    _baseline_gaze: visualization.Visualizable | None = None
     """For visualization purposes only."""
 
     def visualize(
@@ -46,8 +48,10 @@ class Result:
         if configuration.gaze_draw_baseline and self._baseline_gaze is not None:
             self._baseline_gaze.visualize(frame, frame_properties, configuration)
 
+        directions = float(configuration.gaze_line_length) * self.directions
+
         starts = self.centers
-        ends = starts + float(configuration.gaze_line_length) * self.directions
+        ends = starts + directions
 
         start: IntArray1
         end: IntArray1
@@ -117,7 +121,9 @@ class Estimator:
 
         baseline_gaze = (
             ceiling_depth is not None
-            and baseline.head.estimate(ceiling_pose, ceiling_depth, 0.8)
+            and baseline.head.estimate(
+                ceiling_pose, ceiling_depth, 0.8, child_quantile=0.9
+            )
             or baseline.keypoint.estimate(
                 ceiling_pose,
                 face_keypoint_threshold=0.4,
@@ -133,6 +139,46 @@ class Estimator:
 
         correct_from_left = False
         correct_from_right = False
+
+        # if len(directions) > 1 and window_left_gaze is not None:
+        #     left_correction_angle = (
+        #         window_left_gaze.horizontal_offset_angles[0] - np.pi / 2.0
+        #     )
+
+        #     if not np.isnan(left_correction_angle):
+        #         sin = np.sin(left_correction_angle)
+        #         cos = np.cos(left_correction_angle)
+        #         rotation = np.array([[cos, -sin], [sin, cos]], dtype=np.float32)
+
+        #         directions[1, :] = rotation @ directions[1, :]
+
+        # if window_right_gaze is not None:
+        #     right_correction_angle = -(
+        #         window_right_gaze.horizontal_offset_angles[0] - np.pi / 2.0
+        #     )
+
+        #     if not np.isnan(right_correction_angle):
+        #         sin = np.sin(right_correction_angle)
+        #         cos = np.cos(right_correction_angle)
+        #         rotation = np.array([[cos, -sin], [sin, cos]], dtype=np.float32)
+
+        #         directions[0, :] = rotation @ directions[0, :]
+
+        if ceiling_depth is not None:
+            center_columns, center_rows = centers.astype(int).T
+            center_depths = ceiling_depth[center_rows, center_columns]
+        else:
+            center_depths = None
+
+        # return Result(
+        #     centers,
+        #     directions,
+        #     np.array(
+        #         [correct_from_right, correct_from_left]
+        #     ),  # assumption about two actors...
+        #     center_depths=center_depths,
+        #     _baseline_gaze=baseline_gaze,
+        # )
 
         ceiling_calibration = self.ceiling_properties.calibration
 
@@ -174,6 +220,7 @@ class Estimator:
             np.array(
                 [correct_from_right, correct_from_left]
             ),  # assumption about two actors...
+            center_depths,
             baseline_gaze,
         )
 

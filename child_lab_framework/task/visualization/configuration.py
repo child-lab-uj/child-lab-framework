@@ -14,7 +14,7 @@ class Configuration:
     face_confidence_size: int = 10
 
     gaze_draw_lines: bool = True
-    gaze_draw_baseline: bool = True
+    gaze_draw_baseline: bool = False
     gaze_line_color: Color = (255.0, 255.0, 0.0, 1.0)
     gaze_line_thickness: int = 5
     gaze_line_length: int = 250
