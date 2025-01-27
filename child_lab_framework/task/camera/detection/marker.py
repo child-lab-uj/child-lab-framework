@@ -8,11 +8,13 @@ import cv2.aruco as opencv_aruco
 import numpy as np
 
 from ....core import serialization, transformation
+from ....core.algebra import euler_angles_from_rotation_matrix
 from ....core.calibration import Calibration
 from ....core.video import Properties
 from ....typing.array import FloatArray1, FloatArray2, FloatArray3, IntArray1
 from ....typing.video import Frame
 from ... import visualization
+from ...visualization import annotation
 
 
 # Can't stand that awful OpenCV's constants ported directly from C++; enum is better
@@ -124,46 +126,154 @@ class Result:
     ids: IntArray1
     transformations: list[transformation.ProjectiveTransformation]
 
-    # TODO: Implement custom drawing procedure
     def visualize(
         self,
         frame: Frame,
         frame_properties: Properties,
         configuration: visualization.Configuration,
     ) -> Frame:
-        draw_boxes = configuration.marker_draw_bounding_boxes
+        if len(self.ids) == 0:
+            return frame
+
+        draw_boxes = configuration.marker_draw_masks
         draw_ids = configuration.marker_draw_ids
         draw_axes = configuration.marker_draw_axes
         draw_angles = configuration.marker_draw_angles
 
+        # TODO: Get rid of nested parts. It's better to have the same loop a few times.
+
         if draw_boxes:
-            color = configuration.marker_bounding_box_color
-            opencv_aruco.drawDetectedMarkers(frame, list(self.corners), self.ids, color)
+            r, g, b, _ = configuration.marker_mask_color
+            color = (int(r), int(g), int(b))
 
-        if draw_ids:
-            ...  # TODO: implement with custom procedure
+            for marker_corners_raw in self.corners:
+                marker_corners = marker_corners_raw.reshape(-1, 2).astype(np.int32)
 
-        calibration = frame_properties.calibration
-        intrinsics = calibration.intrinsics
-        distortion = calibration.distortion
+                annotation.draw_filled_polygon_with_opacity(
+                    frame,
+                    marker_corners,
+                    color=color,
+                    opacity=0.5,
+                )
+
+                corner_pixels: list[tuple[int, int]] = list(map(tuple, marker_corners))
+                upper_left, upper_right, lower_right, lower_left = corner_pixels
+
+                annotation.draw_point_with_description(
+                    frame,
+                    upper_left,
+                    'upper_left',
+                    point_radius=1,
+                    font_scale=0.4,
+                    text_location='above',
+                )
+                annotation.draw_point_with_description(
+                    frame,
+                    upper_right,
+                    'upper_right',
+                    point_radius=1,
+                    font_scale=0.4,
+                    text_location='above',
+                )
+                annotation.draw_point_with_description(
+                    frame,
+                    lower_right,
+                    'lower_right',
+                    point_radius=1,
+                    font_scale=0.4,
+                )
+                annotation.draw_point_with_description(
+                    frame,
+                    lower_left,
+                    'lower_left',
+                    point_radius=1,
+                    font_scale=0.4,
+                )
 
         if draw_axes:
             length = configuration.marker_axis_length
             thickness = configuration.marker_axis_thickness
 
+            x_color = (255, 0, 0)
+            y_color = (0, 255, 0)
+            z_color = (0, 0, 255)
+
+            intrinsics = frame_properties.calibration.intrinsics
+
+            basis_points = np.array(
+                [
+                    [0.0, 0.0, 0.0],
+                    [length, 0.0, 0.0],
+                    [0.0, length, 0.0],
+                    [0.0, 0.0, length],
+                ],
+                dtype=np.float32,
+            ).T
+
             for transformation in self.transformations:
-                opencv.drawFrameAxes(
-                    frame,
-                    intrinsics,
-                    distortion,
-                    transformation.rotation,
-                    transformation.translation,
-                    length,
-                    thickness,
+                rotation = transformation.rotation
+                translation = transformation.translation.reshape(-1, 1)
+
+                transformed_basis = rotation @ basis_points + translation
+                transformed_basis /= transformed_basis[2]
+                projected_basis = intrinsics @ transformed_basis
+
+                projected_basis_pixel_coordinates: list[tuple[int, int]] = (
+                    projected_basis.T[:, :2].astype(int).tolist()
+                )
+                o, x, y, z = projected_basis_pixel_coordinates
+
+                opencv.line(frame, o, x, x_color, thickness)
+                opencv.line(frame, o, y, y_color, thickness)
+                opencv.line(frame, o, z, z_color, thickness)
+
+                if draw_angles:
+                    angles: list[float] = (
+                        180.0
+                        / np.pi
+                        * euler_angles_from_rotation_matrix(transformation.rotation)
+                    ).tolist()
+
+                    x_angle, y_angle, z_angle = angles
+
+                    annotation.draw_point_with_description(
+                        frame,
+                        x,
+                        f'x: {x_angle:.2f}',
+                        font_scale=0.3,
+                        point_radius=1,
+                        point_color=x_color,
+                    )
+                    annotation.draw_point_with_description(
+                        frame,
+                        y,
+                        f'y: {y_angle:.2f}',
+                        font_scale=0.3,
+                        point_radius=1,
+                        point_color=y_color,
+                    )
+                    annotation.draw_point_with_description(
+                        frame,
+                        z,
+                        f'z: {z_angle:.2f}',
+                        font_scale=0.3,
+                        point_radius=1,
+                        point_color=z_color,
+                    )
+
+        if draw_ids:
+            for id, marker_corners in zip(self.ids, self.corners):
+                marker_corners = marker_corners.reshape(-1, 2)
+                center: tuple[int, int] = (
+                    np.mean(marker_corners, axis=0).astype(int).tolist()
                 )
 
-        if draw_angles:
-            ...  # TODO: draw rotation angles around axes
+                annotation.draw_text_within_box(
+                    frame,
+                    f'marker {id}',
+                    center,
+                    font_scale=0.3,
+                )
 
         return frame
 
@@ -233,4 +343,4 @@ class Detector:
             if success
         ]
 
-        return Result(np.stack(corners), ids, transformations)
+        return Result(np.stack(corners), ids.reshape(-1), transformations)
