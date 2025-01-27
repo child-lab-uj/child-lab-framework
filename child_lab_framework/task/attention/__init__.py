@@ -1,3 +1,3 @@
-from . import probabilistic
+from . import geometric, probabilistic
 
-__all__ = ['probabilistic']
+__all__ = ['geometric', 'probabilistic']

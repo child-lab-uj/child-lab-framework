@@ -110,7 +110,16 @@ def main(
         window_right_properties,
     )
 
-    attention_estimator = attention.probabilistic.Estimator()
+    probabilistic_attention_estimator = attention.probabilistic.Estimator()
+    geometric_attention_estimator = attention.geometric.Estimator(
+        max_parallel_angle=0.15,
+        max_parallel_distance=100.0,
+        max_target_linear_velocity=1000.0,
+        max_head_angular_velocity=100.0,
+        max_scene_distance=1000.0,
+        max_diadic_divergence=150.0,
+        max_triadic_divergence=50.0,
+    )
 
     # social_distance_estimator = social_distance.Estimator(executor)
     # social_distance_logger = social_distance.FileLogger('dev/output/distance.csv')
@@ -342,12 +351,12 @@ def main(
         Logger.info('Done!')
 
         window_left_attention = (
-            attention_estimator.predict_batch(window_left_gazes)
+            probabilistic_attention_estimator.predict_batch(window_left_gazes)
             if window_left_gazes is not None
             else None
         )
         window_right_attention = (
-            attention_estimator.predict_batch(window_right_gazes)
+            probabilistic_attention_estimator.predict_batch(window_right_gazes)
             if window_right_gazes is not None
             else None
         )
@@ -401,7 +410,7 @@ def main(
             ],
         )
 
-        ceiling_attention_from_left = [
+        _ceiling_attention_from_left = [
             result.transform(t) if result is not None and t is not None else None
             for result, t in zip(
                 window_left_attention or [],
@@ -409,13 +418,25 @@ def main(
             )
         ]
 
-        ceiling_attention_from_right = [
+        _ceiling_attention_from_right = [
             result.transform(t) if result is not None and t is not None else None
             for result, t in zip(
                 window_right_attention or [],
                 window_right_to_ceiling or [],  # type: ignore  # window_left_to_ceiling identifier always exists at this point
             )
         ]
+
+        ceiling_joint_attention = (
+            geometric_attention_estimator.predict_batch(
+                ceiling_gazes,
+                window_left_gazes,
+                window_right_gazes,
+            )
+            if ceiling_gazes is not None
+            and window_left_gazes is not None
+            and window_right_gazes is not None
+            else None
+        )
 
         window_left_annotated_frames = window_left_visualizer.annotate_batch(
             window_left_frames,
@@ -437,8 +458,7 @@ def main(
             ceiling_frames,
             ceiling_poses,
             ceiling_gazes,
-            ceiling_attention_from_left,
-            ceiling_attention_from_right,
+            ceiling_joint_attention if ceiling_joint_attention is not None else None,
         )
         Logger.info('Done!')
 
