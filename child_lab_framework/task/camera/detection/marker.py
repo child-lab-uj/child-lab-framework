@@ -124,7 +124,7 @@ class RigidModel:
 class Result:
     corners: FloatArray3
     ids: IntArray1
-    transformations: list[transformation.ProjectiveTransformation]
+    transformations: list[transformation.EuclideanTransformation]
 
     def visualize(
         self,
@@ -296,10 +296,9 @@ class Detector:
         ]
 
         transformations = [
-            transformation.ProjectiveTransformation(
+            transformation.EuclideanTransformation(
                 typing.cast(FloatArray2, opencv.Rodrigues(rotation)[0]),
                 typing.cast(FloatArray1, np.squeeze(translation)),
-                calibration,
             )
             for success, rotation, translation in results
             if success
