@@ -38,7 +38,7 @@ ChildLab Framework provides various novel methods of detecting joint attention -
 
 ## Usage
 
-Currently the main method of using the framework is a CLI:
+For the basic usage ChildLab Framework provides a CLI:
 
 ```bash
 python -m child_lab_framework -help calibrate
@@ -47,3 +47,111 @@ python -m child_lab_framework -help estimate-transformations
 
 python -m child_lab_framework -help process
 ```
+
+The framework's components are exposed as a public API.
+Below you can find an example usage, for a fuller picture please refer to the [demo](https://github.com/child-lab-uj/child-lab-framework/tree/main/child_lab_framework/_procedure/demo_sequential.py).
+
+```python
+def main(
+    input_video: Input,
+    device: torch.device,
+    output_directory: Path,
+) -> None:
+
+    reader = Reader(
+        input_video,
+        batch_size=BATCH_SIZE,
+    )
+
+    video_properties = video_properties.properties
+
+    pose_estimator = pose.Estimator(
+        device,
+        input=video_properties,
+        max_detections=2,
+        threshold=0.5,
+    )
+
+    face_estimator = face.Estimator(
+        device,
+        input=video_properties,
+        confidence_threshold=0.5,
+        suppression_threshold=0.1,
+    )
+
+    gaze_estimator = gaze.Estimator(
+        input=video_properties,
+    )
+
+    visualizer = Visualizer(
+        properties=video_properties,
+        configuration=VisualizationConfiguration(),
+    )
+
+    writer = Writer(
+        output_directory / 'output.mp4',
+        video_properties,
+        output_format=Format.MP4,
+    )
+
+    Logger.info('Components instantiated')
+
+    while True:
+        frames = reader.read_batch()
+        if frames is None:
+            break
+
+        Logger.info('Estimating poses...')
+        poses = imputed_with_closest_known_reference(
+            pose_estimator.predict_batch(frames)
+        )
+
+        Logger.info('Detecting faces...')
+        faces = (
+            imputed_with_closest_known_reference(
+                face_estimator.predict_batch(frames, poses)
+            )
+            if poses is not None
+            else None
+        )
+
+        Logger.info('Estimating gazes...')
+        gazes = (
+            imputed_with_closest_known_reference(
+                gaze_estimator.predict_batch(
+                    frames, faces
+                )
+            )
+            if faces is not None
+            else None
+        )
+
+        Logger.info('Visualizing results...')
+        annotated_frames = visualizer.annotate_batch(
+            frames,
+            poses,
+            gazes,
+        )
+
+        Logger.info('Saving results...')
+        writer.write_batch(annotated_frames)
+
+        Logger.info('Step complete')
+```
+
+## Roadmap
+
+- [x] Basic framework structure
+- [x] Asynchronous processing
+- [x] Camera calibration
+- [x] Depth estimation
+- [x] 3D transformation estimation
+- [x] Pose estimation
+- [x] Face estimation
+- [x] Gaze analysis
+- [x] Joint attention detection
+- [ ] Integrated 3D visualization 
+- [ ] Emotion recognition
+- [ ] General web GUI
+- [ ] PyPi deployment
+- [ ] Integrated point cloud registration
