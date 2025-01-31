@@ -1,6 +1,9 @@
 # ChildLab Framework
 #### A System for Holistic Tracking of Parent-Child Pose Dynamics in Multi-Camera Environments
 
+> **Disclaimer**  
+> The framework is in a very early development status.
+> We plan stabilization of public APIs after the first release.
 
 ## Introduction & Motivation
 
@@ -41,105 +44,105 @@ ChildLab Framework provides various novel methods of detecting joint attention -
 For the basic usage ChildLab Framework provides a CLI:
 
 ```bash
-python -m child_lab_framework -help calibrate
+python3 -m child_lab_framework calibrate --help
 
-python -m child_lab_framework -help estimate-transformations
+python3 -m child_lab_framework estimate-transformations --help
 
-python -m child_lab_framework -help process
+python3 -m child_lab_framework process --help
 ```
 
 The framework's components are exposed as a public API.
 Below you can find an example usage, for a fuller picture please refer to the [demo](https://github.com/child-lab-uj/child-lab-framework/tree/main/child_lab_framework/_procedure/demo_sequential.py).
 
 ```python
-def main(
-    input_video: Input,
-    device: torch.device,
-    output_directory: Path,
-) -> None:
+from pathlib import Path
 
-    reader = Reader(
-        input_video,
-        batch_size=BATCH_SIZE,
+from child_lab_framework.core import video
+from child_lab_framework.postprocessing import imputed_with_closest_known_reference
+from child_lab_framework.task import pose, face, gaze, visualization
+
+
+# Create video I/O components
+reader = video.Reader(
+    video.Input(
+        'my_video',
+        Path('my_video.mp4'),
+        calibration=None
+    ),
+    batch_size=10,
+)
+video_properties = reader.properties
+
+writer = video.Writer(
+    Path('output.mp4'),
+    video_properties,
+    output_format=video.Format.MP4,
+)
+
+# Create a visualization component
+visualizer = visualization.Visualizer(
+    properties=video_properties,
+    configuration=visualization.VisualizationConfiguration(),
+)
+
+# Perform computation on a GPU
+device = torch.device('cuda')
+
+# Prepare estimators
+pose_estimator = pose.Estimator(
+    device,
+    input=video_properties,
+    max_detections=2,
+    threshold=0.5,
+)
+
+face_estimator = face.Estimator(
+    device,
+    input=video_properties,
+    confidence_threshold=0.5,
+    suppression_threshold=0.1,
+)
+
+gaze_estimator = gaze.Estimator(input=video_properties)
+
+# Read frames
+frames = reader.read_batch()
+assert frames is not None
+
+# Predict and impute poses
+poses = imputed_with_closest_known_reference(
+    pose_estimator.predict_batch(frames)
+)
+
+# Predict and impute faces matched with poses
+faces = (
+    imputed_with_closest_known_reference(
+        face_estimator.predict_batch(frames, poses)
     )
+    if poses is not None
+    else None
+)
 
-    video_properties = video_properties.properties
-
-    pose_estimator = pose.Estimator(
-        device,
-        input=video_properties,
-        max_detections=2,
-        threshold=0.5,
-    )
-
-    face_estimator = face.Estimator(
-        device,
-        input=video_properties,
-        confidence_threshold=0.5,
-        suppression_threshold=0.1,
-    )
-
-    gaze_estimator = gaze.Estimator(
-        input=video_properties,
-    )
-
-    visualizer = Visualizer(
-        properties=video_properties,
-        configuration=VisualizationConfiguration(),
-    )
-
-    writer = Writer(
-        output_directory / 'output.mp4',
-        video_properties,
-        output_format=Format.MP4,
-    )
-
-    Logger.info('Components instantiated')
-
-    while True:
-        frames = reader.read_batch()
-        if frames is None:
-            break
-
-        Logger.info('Estimating poses...')
-        poses = imputed_with_closest_known_reference(
-            pose_estimator.predict_batch(frames)
-        )
-
-        Logger.info('Detecting faces...')
-        faces = (
-            imputed_with_closest_known_reference(
-                face_estimator.predict_batch(frames, poses)
-            )
-            if poses is not None
-            else None
-        )
-
-        Logger.info('Estimating gazes...')
-        gazes = (
-            imputed_with_closest_known_reference(
-                gaze_estimator.predict_batch(
-                    frames, faces
-                )
-            )
-            if faces is not None
-            else None
-        )
-
-        Logger.info('Visualizing results...')
-        annotated_frames = visualizer.annotate_batch(
+# Estimate and impute gaze based on faces
+gazes = (
+    imputed_with_closest_known_reference(
+        gaze_estimator.predict_batch(
             frames,
-            poses,
-            gazes,
+            faces,
         )
+    )
+    if faces is not None
+    else None
+)
 
-        Logger.info('Saving results...')
-        writer.write_batch(annotated_frames)
+# Visualize the results
+annotated_frames = visualizer.annotate_batch(frames, poses, gazes)
 
-        Logger.info('Step complete')
+# Save the results
+writer.write_batch(annotated_frames)
 ```
 
-## Roadmap
+## Project Roadmap
 
 - [x] Basic framework structure
 - [x] Asynchronous processing
@@ -149,9 +152,8 @@ def main(
 - [x] Pose estimation
 - [x] Face estimation
 - [x] Gaze analysis
-- [x] Joint attention detection
-- [ ] Integrated 3D visualization 
+- [ ] Joint attention detection
+- [ ] 3D visualization
 - [ ] Emotion recognition
 - [ ] General web GUI
-- [ ] PyPi deployment
-- [ ] Integrated point cloud registration
+- [ ] PyPI deployment
