@@ -189,6 +189,8 @@ def main(
         window_left_reader.read_skipping(frames_to_skip)
         window_right_reader.read_skipping(frames_to_skip)
 
+    attention_events: list[attention.geometric.Result] = []
+
     while True:
         ceiling_frames = ceiling_reader.read_batch()
         if ceiling_frames is None:
@@ -438,6 +440,8 @@ def main(
             else None
         )
 
+        attention_events.extend(filter(None, ceiling_joint_attention or []))
+
         window_left_annotated_frames = window_left_visualizer.annotate_batch(
             window_left_frames,
             window_left_poses,
@@ -481,3 +485,10 @@ def main(
         Logger.info('Done!')
 
         Logger.info('Step complete')
+
+    attention_events_location = output_directory / 'events.csv'
+
+    with open(attention_events_location, 'w+') as file:
+        file.write('start;end;event\n')
+        for event in attention_events:
+            file.write(f'{event.timestamp};{event.timestamp + 10};{event.event.LABEL}\n')
