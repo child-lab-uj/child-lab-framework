@@ -292,6 +292,7 @@ class Result3d:
                 color,
                 thickness,
             )
+            break
 
         return frame
 

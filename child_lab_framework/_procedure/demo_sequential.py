@@ -447,7 +447,6 @@ def main(
             window_left_poses,
             window_left_faces,
             window_left_gazes,
-            window_left_attention,
         )
 
         window_right_annotated_frames = window_right_visualizer.annotate_batch(
@@ -455,7 +454,6 @@ def main(
             window_right_poses,
             window_right_faces,
             window_right_gazes,
-            window_right_attention,
         )
 
         ceiling_annotated_frames = ceiling_visualizer.annotate_batch(
