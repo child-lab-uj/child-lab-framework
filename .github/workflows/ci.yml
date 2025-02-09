@@ -14,7 +14,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-          cache-dependency-glob: "uv.lock"  # Invalidate the cache if the lockfile has changed
+          cache-dependency-glob: "uv.lock" # Invalidate the cache if the lockfile has changed
 
       # According to the docs, this solution can be faster than `uv python install`
       # because of the external caching performed by GitHub.
@@ -33,7 +33,7 @@ jobs:
         run: uv run ruff check
 
       - name: Check types
-        run: uv run mypy . --config-file pyproject.toml
+        run: uv run check_types.py
 
   typos:
     name: Check typos
