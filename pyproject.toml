@@ -1,13 +1,16 @@
 [project]
 name = "child-lab-framework"
 version = "0.1.0"
-description = "UJ ChildLab Computer Vision project"
+requires-python = ">=3.12,<3.13"
+
 authors = [
     { name = "Jan Smółka", email = "jp.smolka@gmail.com" },
     { name = "Igor Urbanik", email = "igorurbanik23@gmail.com" },
 ]
-requires-python = ">=3.12,<3.13"
+
+description = "UJ ChildLab Computer Vision project"
 readme = "README.md"
+
 dependencies = [
     "opencv-python>=4.10.0.84",
     "ultralytics>=8.2.72",
@@ -16,7 +19,7 @@ dependencies = [
     "scipy>=1.14.1",
     "pandas>=2.2.2",
     "mini-face>=0.1.3",
-    "depth-pro",
+    "depth-pro>=0.1.0",
     "click>=8.1.7",
     "more-itertools>=10.5.0",
     "kornia>=0.7.4",
@@ -25,13 +28,50 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["icecream>=2.1.3", "ruff>=0.6.8", "mypy>=1.11.2", "spin>=0.13"]
+dev = [
+    "icecream>=2.1.3",
+    "ruff>=0.6.8",
+    "mypy>=1.11.2",
+    "spin>=0.13",
+    "pytest>=8.3.4",
+    "syrupy>=4.8.1",
+    "pytest-benchmark>=5.1.0",
+    "hypothesis>=6.129.3",
+    "basedpyright>=1.28.4",
+]
+
+workspace = [
+    "child-lab-annotation",
+    "child-lab-cli",
+    "child-lab-data",
+    "child-lab-framework",
+    "child-lab-procedures",
+    "child-lab-visualization",
+    "marker-detection",
+    "transformation-buffer",
+    "video-io",
+    "vpc",
+]
+
+[tool.uv.workspace]
+members = ["packages/*"]
 
 [tool.uv]
-compile-bytecode = true
+compile-bytecode = false
+default-groups = ["dev", "workspace"]
 
 [tool.uv.sources]
 depth-pro = { git = "https://github.com/child-lab-uj/depth-pro.git" }
+child-lab-annotation = { workspace = true }
+child-lab-cli = { workspace = true }
+child-lab-data = { workspace = true }
+child-lab-framework = { workspace = true }
+child-lab-procedures = { workspace = true }
+child-lab-visualization = { workspace = true }
+marker-detection = { workspace = true }
+transformation-buffer = { workspace = true }
+video-io = { workspace = true }
+vpc = { workspace = true }
 
 [tool.hatch.build.targets.sdist]
 include = ["child_lab_framework"]
@@ -52,16 +92,19 @@ quote-style = "single"
 indent-style = "space"
 docstring-code-format = true
 
+[tool.ruff.lint]
+ignore = ["F722"] # Makes using jaxtyping possible
+
 [tool.mypy]
-packages = ["child_lab_framework"]
-exclude = ["venv"]
+exclude = [".venv"]
 incremental = true
 strict = true
 allow_untyped_globals = false
 disallow_any_expr = false
+disallow_any_explicit = false
+disallow_any_decorated = false
+disallow_any_generics = false  # This option makes using jaxtyping with numpy problematic
 disallow_any_unimported = true
-disallow_any_decorated = true
-disallow_any_generics = true
 disallow_subclassing_any = true
 disallow_untyped_defs = true
 disallow_untyped_calls = true
