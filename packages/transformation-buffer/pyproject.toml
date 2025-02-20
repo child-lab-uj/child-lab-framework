@@ -3,12 +3,28 @@ name = "transformation-buffer"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "Jan Smółka", email = "jp.smolka@gmail.com" }
-]
+authors = [{ name = "Jan Smółka", email = "jp.smolka@gmail.com" }]
 requires-python = ">=3.12.7"
-dependencies = []
+dependencies = [
+    "jaxtyping>=0.2.37",
+    "kornia>=0.8.0",
+    "more-itertools>=10.6.0",
+    "plum-dispatch>=2.5.7",
+    "pyserde[numpy]>=0.23.0",
+    "rustworkx>=0.16.0",
+]
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.125.3",
+    "pytest>=8.3.4",
+    "syrupy>=4.8.1",
+]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+python_files = "tests/**/*.py"
+python_functions = "test_*"
