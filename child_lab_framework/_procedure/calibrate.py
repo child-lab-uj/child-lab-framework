@@ -1,5 +1,6 @@
 import typing
 from pathlib import Path
+from typing import Literal
 
 import cv2
 import numpy as np
@@ -9,7 +10,7 @@ from ..core.calibration import Calibration
 from ..core.video import Format, Input, Reader, Writer
 from ..task.camera.detection import chessboard
 from ..task.visualization import Configuration, Visualizer
-from ..typing.array import FloatArray1, FloatArray2, FloatArray3
+from ..typing.array import FloatArray1, FloatArray2
 
 
 # TODO: Implement procedures as classes with `Iterable` protocol
@@ -17,7 +18,7 @@ from ..typing.array import FloatArray1, FloatArray2, FloatArray3
 def run(
     video_source: Path,
     annotated_video_destination: Path,
-    board_properties: chessboard.Properties,
+    board_properties: chessboard.BoardProperties,
     skip: int,
 ) -> Calibration:
     reader = Reader(
@@ -40,8 +41,8 @@ def run(
 
     detector = chessboard.Detector(board_properties)
 
-    inner_corners_per_row = board_properties.inner_corners_per_row
-    inner_corners_per_column = board_properties.inner_corners_per_column
+    inner_corners_per_row = board_properties.inner_columns
+    inner_corners_per_column = board_properties.inner_rows
     square_size = board_properties.square_size
 
     # Prepare object points, like (0,0,0), (1,0,0), (2,0,0). ...,(6,5,0)
@@ -56,7 +57,9 @@ def run(
     )
 
     object_points: list[FloatArray2] = []
-    image_points: list[FloatArray3] = []
+    image_points: list[
+        np.ndarray[tuple[int, Literal[1], Literal[2]], np.dtype[np.float32]]
+    ] = []
 
     for _ in trange(1, video_properties.length, skip, desc='Processing video'):
         frame = reader.read_skipping(skip)
