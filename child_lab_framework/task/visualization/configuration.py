@@ -47,15 +47,10 @@ class Configuration:
     chessboard_corner_color: Color = (255.0, 0.0, 0.0, 1.0)
     chessboard_corner_radius: int = 3
 
-    marker_draw_bounding_boxes: bool = True
-    marker_bounding_box_color: Color = (255.0, 0.0, 0.0, 1.0)
-    marker_bounding_box_thickness: int = True
     marker_draw_ids: bool = True
-    marker_id_color: Color = (0.0, 255.0, 0.0, 1.0)
-    marker_id_size: int = 10
+    marker_draw_masks: bool = True
+    marker_mask_color: Color = (0.0, 255.0, 0.0, 1.0)
     marker_draw_axes: bool = True
     marker_axis_length: int = 100
     marker_axis_thickness: int = 2
     marker_draw_angles: bool = True
-    marker_angle_color: Color = (255.0, 255.0, 255.0, 1.0)
-    marker_angle_size: int = 10
