@@ -50,6 +50,14 @@ def run(
     for reader in readers:
         reader.read_skipping(skip)
 
+    visualizers = [
+        visualization.Visualizer(
+            properties=reader.properties,
+            configuration=visualization.Configuration(),
+        )
+        for reader in readers
+    ]
+
     writers = [
         Writer(destination, reader.properties, output_format=Format.MP4)
         for destination, reader in zip(video_destinations, readers)
@@ -59,11 +67,6 @@ def run(
         model=configuration.model,
         dictionary=configuration.dictionary,
         detector_parameters=configuration.detector_parameters,
-    )
-
-    visualizer = visualization.Visualizer(
-        properties=readers[0].properties,
-        configuration=visualization.Configuration(),
     )
 
     camera_progress_bar = trange(len(readers), desc='Processing cameras')
@@ -79,8 +82,8 @@ def run(
         frame_progress_bar.update()
 
         views = [
-            (reader, writer, frame)
-            for reader, writer in zip(readers, writers)
+            (reader, visualizer, writer, frame)
+            for reader, visualizer, writer in zip(readers, visualizers, writers)
             if (frame := reader.read()) is not None
         ]
 
@@ -90,7 +93,7 @@ def run(
         camera_progress_bar.refresh()
         camera_progress_bar.reset()
 
-        for reader, writer, frame in views:
+        for reader, visualizer, writer, frame in views:
             camera_progress_bar.update()
 
             detector.calibration = reader.properties.calibration
