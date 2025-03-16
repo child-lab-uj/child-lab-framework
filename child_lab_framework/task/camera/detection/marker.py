@@ -1,3 +1,4 @@
+import typing
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Self
@@ -7,10 +8,9 @@ import cv2.aruco as opencv_aruco
 import numpy as np
 
 from ....core import serialization, transformation
-from ....core.algebra import depth_to_perspective, kabsch
 from ....core.calibration import Calibration
 from ....core.video import Properties
-from ....typing.array import FloatArray2, FloatArray3, IntArray1
+from ....typing.array import FloatArray1, FloatArray2, FloatArray3, IntArray1
 from ....typing.video import Frame
 from ... import visualization
 
@@ -197,45 +197,40 @@ class Detector:
 
         self.model = model
 
-    def predict(self, frame: Frame, depth: FloatArray2) -> Result | None:
-        corners: list[FloatArray2]
-        ids: IntArray1
-
-        corners, ids, _rejected = self.detector.detectMarkers(frame)  # type: ignore # Please never write return types as protocols ;__;
+    def predict(self, frame: Frame) -> Result | None:
+        corners_dirty, ids_dirty, _rejected = self.detector.detectMarkers(frame)
+        corners: list[FloatArray2] = typing.cast(list[FloatArray2], corners_dirty)
+        ids: IntArray1 = typing.cast(IntArray1, ids_dirty)
 
         if len(corners) == 0 or len(ids) == 0:
             return None
 
         calibration = self.calibration
-
-        perspective_coordinates = depth_to_perspective(depth, calibration)
-
-        marker_camera_coordinates = [
-            np.stack(
-                [
-                    perspective_coordinates[int(marker_y), int(marker_x)]
-                    for marker_x, marker_y in np.squeeze(marker_corners)
-                ]
-            )
-            for marker_corners in corners
-        ]
+        intrinsics = calibration.intrinsics
+        distortion = calibration.distortion
 
         marker_rigid_coordinates = self.model.coordinates
 
         results = [
-            # Estimate the transformation from the rigid frame of reference (lately shared between cameras)
-            # and the concrete camera
-            kabsch(marker_rigid_coordinates, camera_coordinates)
-            for camera_coordinates in marker_camera_coordinates
+            opencv.solvePnP(
+                marker_rigid_coordinates,
+                camera_coordinates,
+                intrinsics,
+                distortion,
+                useExtrinsicGuess=True,
+                flags=opencv.SOLVEPNP_IPPE_SQUARE,
+            )
+            for camera_coordinates in corners
         ]
 
         transformations = [
             transformation.ProjectiveTransformation(
-                rotation,
-                np.squeeze(translation),
+                typing.cast(FloatArray2, opencv.Rodrigues(rotation)[0]),
+                typing.cast(FloatArray1, np.squeeze(translation)),
                 calibration,
             )
-            for rotation, translation in results
+            for success, rotation, translation in results
+            if success
         ]
 
         return Result(np.stack(corners), ids, transformations)
