@@ -494,6 +494,36 @@ wheels = [
 name = "marker-detection"
 version = "0.1.0"
 source = { editable = "packages/marker-detection" }
+dependencies = [
+    { name = "attrs" },
+    { name = "numpy" },
+    { name = "opencv-python" },
+    { name = "pyserde" },
+    { name = "scipy" },
+    { name = "video-io" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "syrupy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "attrs", specifier = ">=25.1.0" },
+    { name = "numpy", specifier = ">=1.26.4" },
+    { name = "opencv-python", specifier = ">=4.11.0.86" },
+    { name = "pyserde", specifier = ">=0.23.0" },
+    { name = "scipy", specifier = ">=1.15.1" },
+    { name = "video-io", editable = "packages/video-io" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.3.4" },
+    { name = "syrupy", specifier = ">=4.8.1" },
+]
 
 [[package]]
 name = "markupsafe"
