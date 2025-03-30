@@ -3,11 +3,19 @@ name = "child-lab-visualization"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "Jan Smółka", email = "jp.smolka@gmail.com" }
-]
+authors = [{ name = "Jan Smółka", email = "jp.smolka@gmail.com" }]
 requires-python = ">=3.12.7"
-dependencies = []
+dependencies = [
+    "numpy>=1.26.4",
+    "torch>=2.6.0",
+    "viser>=0.2.23",
+    "transformation-buffer",
+    "video-io",
+]
+
+[tool.uv.sources]
+transformation-buffer = { workspace = true }
+video-io = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
