@@ -233,6 +233,18 @@ workspace = [
 name = "child-lab-procedures"
 version = "0.1.0"
 source = { editable = "packages/child-lab-procedures" }
+dependencies = [
+    { name = "marker-detection" },
+    { name = "transformation-buffer" },
+    { name = "video-io" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "marker-detection", editable = "packages/marker-detection" },
+    { name = "transformation-buffer", editable = "packages/transformation-buffer" },
+    { name = "video-io", editable = "packages/video-io" },
+]
 
 [[package]]
 name = "child-lab-visualization"
