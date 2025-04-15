@@ -7,7 +7,20 @@ authors = [
     { name = "Jan Smółka", email = "jp.smolka@gmail.com" }
 ]
 requires-python = ">=3.12.7"
-dependencies = []
+dependencies = [
+    "opencv-python>=4.11.0.86",
+    "numpy>=1.26.4",
+    "torch>=2.6.0",
+    "jaxtyping>=0.3.0",
+    "video-io",
+    "marker-detection",
+    "transformation-buffer",
+]
+
+[tool.uv.sources]
+video-io = { workspace = true }
+marker-detection = {workspace = true }
+transformation-buffer = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
