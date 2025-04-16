@@ -47,6 +47,7 @@ workspace = [
     "child-lab-framework",
     "child-lab-procedures",
     "child-lab-visualization",
+    "depth-estimation",
     "marker-detection",
     "transformation-buffer",
     "video-io",
@@ -68,6 +69,7 @@ child-lab-data = { workspace = true }
 child-lab-framework = { workspace = true }
 child-lab-procedures = { workspace = true }
 child-lab-visualization = { workspace = true }
+depth-estimation = { workspace = true }
 marker-detection = { workspace = true }
 transformation-buffer = { workspace = true }
 video-io = { workspace = true }

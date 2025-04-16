@@ -16,6 +16,7 @@ members = [
     "child-lab-framework",
     "child-lab-procedures",
     "child-lab-visualization",
+    "depth-estimation",
     "marker-detection",
     "transformation-buffer",
     "video-io",
@@ -164,6 +165,7 @@ workspace = [
     { name = "child-lab-framework" },
     { name = "child-lab-procedures" },
     { name = "child-lab-visualization" },
+    { name = "depth-estimation" },
     { name = "marker-detection" },
     { name = "transformation-buffer" },
     { name = "video-io" },
@@ -206,6 +208,7 @@ workspace = [
     { name = "child-lab-framework", editable = "." },
     { name = "child-lab-procedures", editable = "packages/child-lab-procedures" },
     { name = "child-lab-visualization", editable = "packages/child-lab-visualization" },
+    { name = "depth-estimation", editable = "packages/depth-estimation" },
     { name = "marker-detection", editable = "packages/marker-detection" },
     { name = "transformation-buffer", editable = "packages/transformation-buffer" },
     { name = "video-io", editable = "packages/video-io" },
@@ -271,6 +274,25 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a9/95/a3dbbb5028f35eafb79008e7522a75244477d2838f38cbb722248dabc2a8/cycler-0.12.1.tar.gz", hash = "sha256:88bb128f02ba341da8ef447245a9e138fae777f6a23943da4540077d3601eb1c", size = 7615 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e7/05/c19819d5e3d95294a6f5947fb9b9629efb316b96de511b418c53d245aae6/cycler-0.12.1-py3-none-any.whl", hash = "sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30", size = 8321 },
+]
+
+[[package]]
+name = "depth-estimation"
+version = "0.1.0"
+source = { editable = "packages/depth-estimation" }
+dependencies = [
+    { name = "jaxtyping" },
+    { name = "timm" },
+    { name = "torch" },
+    { name = "torchvision" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jaxtyping", specifier = ">=0.3.0" },
+    { name = "timm", specifier = ">=1.0.15" },
+    { name = "torch", specifier = ">=2.6.0" },
+    { name = "torchvision", specifier = ">=0.21.0" },
 ]
 
 [[package]]

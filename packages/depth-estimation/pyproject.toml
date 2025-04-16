@@ -1,0 +1,19 @@
+[project]
+name = "depth-estimation"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Jan Smółka", email = "jp.smolka@gmail.com" }
+]
+requires-python = ">=3.12.7"
+dependencies = [
+    "jaxtyping>=0.3.0",
+    "timm>=1.0.15",
+    "torch>=2.6.0",
+    "torchvision>=0.21.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
