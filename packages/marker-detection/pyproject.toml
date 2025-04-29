@@ -3,11 +3,22 @@ name = "marker-detection"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "Jan Smółka", email = "jp.smolka@gmail.com" }
-]
+authors = [{ name = "Jan Smółka", email = "jp.smolka@gmail.com" }]
 requires-python = ">=3.12.7"
-dependencies = []
+dependencies = [
+    "attrs>=25.1.0",
+    "numpy>=1.26.4",
+    "opencv-python>=4.11.0.86",
+    "pyserde>=0.23.0",
+    "scipy>=1.15.1",
+    "video-io",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3.4", "syrupy>=4.8.1"]
+
+[tool.uv.sources]
+video-io = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
