@@ -1,0 +1,17 @@
+# serializer version: 1
+# name: test_serialize_with_empty_graph_json
+  '{"graph":{"check_cycle":false,"multigraph":true,"nodes":[],"edges":[]}}'
+# ---
+# name: test_serialize_with_empty_graph_yaml
+  '''
+  graph:
+    check_cycle: false
+    edges: []
+    multigraph: true
+    nodes: []
+  
+  '''
+# ---
+# name: test_serialize_with_simple_graph_json
+  '{"graph":{"check_cycle":false,"multigraph":true,"nodes":[[0,"a"],[1,"b"],[2,"c"],[3,"d"],[4,"e"]],"edges":[[[0,1],"edge1"],[[0,2],"edge2"],[[3,4],"edge3"]]}}'
+# ---

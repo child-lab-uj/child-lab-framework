@@ -1,0 +1,4 @@
+# serializer version: 1
+# name: test_serialize_identity_transformation_json
+  '{"rotation_and_translation":{"data":[[1.0,0.0,0.0,0.0],[0.0,1.0,0.0,0.0],[0.0,0.0,1.0,0.0],[0.0,0.0,0.0,1.0]],"dtype":"torch.float32"}}'
+# ---

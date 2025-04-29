@@ -1,0 +1,10 @@
+# serializer version: 1
+# name: test_serialize_empty_tensor_json
+  '{"tensor":{"data":[],"dtype":"torch.float32"}}'
+# ---
+# name: test_serialize_small_tensor_jaxtyping_json
+  '{"tensor":{"data":[[1.0,2.0,3.0],[4.0,5.0,6.0],[7.0,8.0,9.0]],"dtype":"torch.float16"}}'
+# ---
+# name: test_serialize_small_tensor_json
+  '{"tensor":{"data":[[1.0,2.0,3.0],[4.0,5.0,6.0],[7.0,8.0,9.0]],"dtype":"torch.float16"}}'
+# ---
