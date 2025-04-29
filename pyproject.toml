@@ -32,7 +32,6 @@ dev = [
     "icecream>=2.1.3",
     "ruff>=0.6.8",
     "mypy>=1.11.2",
-    "spin>=0.13",
     "pytest>=8.3.4",
     "syrupy>=4.8.1",
     "pytest-benchmark>=5.1.0",
@@ -105,7 +104,7 @@ allow_untyped_globals = false
 disallow_any_expr = false
 disallow_any_explicit = false
 disallow_any_decorated = false
-disallow_any_generics = false  # This option makes using jaxtyping with numpy problematic
+disallow_any_generics = false   # This option makes using jaxtyping with numpy problematic
 disallow_any_unimported = true
 disallow_subclassing_any = true
 disallow_untyped_defs = true
@@ -120,6 +119,3 @@ follow_untyped_imports = true
 
 [tool.mypy-networkx]
 ignore_missing_imports = true
-
-[tool.spin.commands]
-"Development" = ["spin/development.py:workspace", "spin/development.py:video"]

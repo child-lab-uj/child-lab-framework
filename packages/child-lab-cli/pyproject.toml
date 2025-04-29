@@ -4,4 +4,31 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12.7"
-dependencies = []
+dependencies = [
+    "click>=8.1.8",
+    "pyserde>=0.23.0",
+    "torch>=2.6.0",
+    "tqdm>=4.67.1",
+    "viser>=0.2.23",
+    "child-lab-visualization",
+    "child-lab-procedures",
+    "depth-estimation",
+    "marker-detection",
+    "transformation-buffer",
+    "video-io",
+]
+
+[tool.uv.sources]
+child-lab-procedures = { workspace = true }
+child-lab-visualization = { workspace = true }
+depth-estimation = { workspace = true }
+marker-detection = { workspace = true }
+transformation-buffer = { workspace = true }
+video-io = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+child-lab = "child_lab_cli:child_lab"
