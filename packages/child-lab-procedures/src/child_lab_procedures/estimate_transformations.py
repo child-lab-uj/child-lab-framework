@@ -7,7 +7,7 @@ import torch
 from marker_detection.aruco import (
     Detector,
     Dictionary,
-    RigidModel,
+    MarkerRigidModel,
     VisualizationContext,
 )
 from transformation_buffer import Buffer
@@ -21,7 +21,7 @@ from child_lab_procedures.garbage_collection import no_garbage_collection
 
 @dataclass(frozen=True)
 class Configuration:
-    model: RigidModel
+    model: MarkerRigidModel
     dictionary: Dictionary
     detector_parameters: cv2.aruco.DetectorParameters = cv2.aruco.DetectorParameters()
     arudice: list[Cube[str]] = field(default_factory=list)
