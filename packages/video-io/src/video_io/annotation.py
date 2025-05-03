@@ -247,4 +247,4 @@ class Comparable(Protocol):
 
 
 def __clip[T: Comparable](value: T, min_value: T, max_value: T) -> T:
-    return min(min_value, max(value, max_value))
+    return max(min_value, min(value, max_value))
