@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 import torch
 import viser
-from child_lab_visualization.server import show_pointcloud_and_camera_poses
+from child_lab_visualization import show_pointcloud_and_camera_poses
 from serde.json import from_json
 from serde.yaml import from_yaml
 from transformation_buffer.buffer import Buffer
