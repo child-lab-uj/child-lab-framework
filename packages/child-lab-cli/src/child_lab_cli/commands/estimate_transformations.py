@@ -8,7 +8,7 @@ from child_lab_procedures.estimate_transformations import (
 )
 from marker_detection.aruco import (
     Dictionary,
-    RigidModel,
+    MarkerRigidModel,
     VisualizationContext,
 )
 from serde.json import to_json
@@ -89,6 +89,8 @@ def estimate_transformations(
     video_io_contexts: list[VideoIoContext] = []
     calibrated_videos = workspace.calibrated_videos()
 
+    rigid_model = MarkerRigidModel(marker_size, 0.0, 0.005)
+
     for video_name in video_names:
         video = next((v for v in calibrated_videos if v.name == video_name), None)
 
@@ -114,9 +116,11 @@ def estimate_transformations(
                         'marker_draw_ids': True,
                         'marker_draw_axes': True,
                         'marker_draw_angles': True,
+                        'marker_draw_3d_dice_models': False,
                         'marker_mask_color': (0.0, 1.0, 0.0, 1.0),
                         'marker_axis_length': 100,
                         'marker_axis_thickness': 1,
+                        'marker_rigid_model': rigid_model,
                     }
                 ),
             )
@@ -136,7 +140,7 @@ def estimate_transformations(
     assert dictionary is not None
 
     configuration = Configuration(
-        RigidModel(marker_size, 1.0),
+        rigid_model,
         dictionary,
         arudice=DEFAULT_ARUDICE,
     )
