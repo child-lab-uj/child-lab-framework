@@ -70,7 +70,7 @@ def calibrate_camera(
 
     calibration_destination = (workspace.calibration / video_name).with_suffix('.yml')
 
-    video = next((v for v in workspace.videos() if v.name == video_name), None)
+    video = workspace.videos().find(lambda video: video.name == video_name)
     if video is None:
         raise click.ClickException(
             f'Input video {video_name} not found in {workspace.input}'

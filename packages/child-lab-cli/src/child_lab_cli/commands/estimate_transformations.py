@@ -92,7 +92,7 @@ def estimate_transformations(
     rigid_model = MarkerRigidModel(marker_size, 0.0, 0.005)
 
     for video_name in video_names:
-        video = next((v for v in calibrated_videos if v.name == video_name), None)
+        video = calibrated_videos.find(lambda video: video.name == video_name)
 
         if video is None:
             raise click.ClickException(

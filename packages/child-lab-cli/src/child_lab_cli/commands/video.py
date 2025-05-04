@@ -70,7 +70,7 @@ def cut(
     input_videos: list[Video] = []
 
     for video_name in video_names:
-        video = next((v for v in available_videos if v.name == video_name), None)
+        video = available_videos.find(lambda video: video.name == video_name)
         if video is None:
             raise FileNotFoundError(f'Video {video_name} not found in {workspace.input}.')
 
