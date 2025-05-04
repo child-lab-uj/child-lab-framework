@@ -50,10 +50,8 @@ def generate_pointcloud(
 
     workspace = Workspace.in_directory(workspace_root)
 
-    for video in workspace.calibrated_videos():
-        if video.name == video_name:
-            break
-    else:
+    video = workspace.calibrated_videos().find(lambda video: video.name == video_name)
+    if video is None:
         raise FileNotFoundError(f'Video {video_name} not found in {workspace.input}.')
 
     output = workspace.output / 'points' / video_name

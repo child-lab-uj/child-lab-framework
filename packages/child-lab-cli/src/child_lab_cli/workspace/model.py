@@ -1,9 +1,21 @@
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
 from serde.json import from_json
 from transformation_buffer.buffer import Buffer
+
+
+@dataclass(slots=True)
+class Collection[T]:
+    content: list[T]
+
+    def find(self, predicate: Callable[[T], bool]) -> T | None:
+        return next((item for item in self.content if predicate(item)), None)
+
+    def __iter__(self) -> Iterator[T]:
+        return iter(self.content)
 
 
 @dataclass(slots=True)
@@ -66,22 +78,26 @@ class Workspace:
     calibration: Path
     transformation: Path
 
-    def videos(self) -> list[Video]:
-        return [Video(path.stem, path) for path in self.input.glob('*')]
+    def videos(self) -> Collection[Video]:
+        return Collection([Video(path.stem, path) for path in self.input.glob('*')])
 
-    def calibrated_videos(self) -> list[CalibratedVideo]:
-        return [
-            CalibratedVideo(path.stem, path, calibration)
-            for path in self.input.glob('*')
-            if (calibration := self.calibration / f'{path.stem}.yml').is_file()
-        ]
+    def calibrated_videos(self) -> Collection[CalibratedVideo]:
+        return Collection(
+            [
+                CalibratedVideo(path.stem, path, calibration)
+                for path in self.input.glob('*')
+                if (calibration := self.calibration / f'{path.stem}.yml').is_file()
+            ]
+        )
 
-    def non_calibrated_videos(self) -> list[NonCalibratedVideo]:
-        return [
-            NonCalibratedVideo(path.stem, path)
-            for path in self.input.glob('*')
-            if not (self.calibration / path.name).is_file()
-        ]
+    def non_calibrated_videos(self) -> Collection[NonCalibratedVideo]:
+        return Collection(
+            [
+                NonCalibratedVideo(path.stem, path)
+                for path in self.input.glob('*')
+                if not (self.calibration / path.name).is_file()
+            ]
+        )
 
     def transformation_buffer(self) -> Buffer[object] | None:
         location = self.transformation / 'buffer.json'
