@@ -13,12 +13,14 @@ dependencies = [
     "torch>=2.6.0",
     "jaxtyping>=0.3.0",
     "video-io",
+    "vpc",
     "marker-detection",
     "transformation-buffer",
 ]
 
 [tool.uv.sources]
 video-io = { workspace = true }
+vpc = { workspace = true }
 marker-detection = {workspace = true }
 transformation-buffer = { workspace = true }
 
