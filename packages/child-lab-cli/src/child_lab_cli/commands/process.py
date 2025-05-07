@@ -2,14 +2,16 @@ from pathlib import Path
 
 import click
 
+from child_lab_cli.workspace.model import Workspace
+
 
 @click.command('process')
-@click.argument('workspace', type=Path)
-@click.argument('videos', type=Path, nargs=-1)
+@click.argument('workspace-root', type=Path, metavar='<workspace>')
+@click.argument('video_names', type=str, nargs=-1, metavar='<videos>')
 @click.option(
     '--device',
     type=str,
-    required=False,
+    default='cpu',
     help='Torch device to use for tensor computations',
 )
 @click.option(
@@ -18,19 +20,9 @@ import click
     required=False,
     help='Seconds of videos to skip at the beginning',
 )
-@click.option(
-    '--dynamic-transformations',
-    type=bool,
-    is_flag=True,
-    default=False,
-    help='Compute camera transformations on the fly, using heuristic algorithms',
-)
-# @click_trap()
 def process(
-    workspace: Path,
-    videos: list[Path],
-    device: str | None,
-    skip: int | None,
-    dynamic_transformations: bool,
+    workspace_root: Path,
+    video_names: list[str],
+    device: str,
 ) -> None:
-    pass
+    workspace = Workspace.in_directory(workspace_root)
