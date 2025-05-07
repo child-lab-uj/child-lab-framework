@@ -2097,6 +2097,24 @@ wheels = [
 name = "vpc"
 version = "0.1.0"
 source = { editable = "packages/vpc" }
+dependencies = [
+    { name = "jaxtyping" },
+    { name = "kornia" },
+    { name = "torch" },
+    { name = "torchvision" },
+    { name = "ultralytics" },
+    { name = "video-io" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jaxtyping", specifier = ">=0.3.2" },
+    { name = "kornia", specifier = ">=0.8.0" },
+    { name = "torch", specifier = ">=2.7.0" },
+    { name = "torchvision", specifier = ">=0.22.0" },
+    { name = "ultralytics", specifier = ">=8.3.121" },
+    { name = "video-io", editable = "packages/video-io" },
+]
 
 [[package]]
 name = "wadler-lindig"
