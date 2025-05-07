@@ -5,6 +5,7 @@ from plum import dispatch, overload
 from vpc import gaze, pose
 
 
+@beartype
 @overload
 def serialize(item: pose.Result3d) -> Float[torch.Tensor, 'n_detections 74']:  # noqa: F811
     flat_boxes = item.boxes  # n_detections x 6
@@ -12,16 +13,18 @@ def serialize(item: pose.Result3d) -> Float[torch.Tensor, 'n_detections 74']:  #
     return torch.cat((flat_boxes, flat_keypoints), dim=1)
 
 
+@beartype
 @overload
 def deserialize(  # noqa: F811
     ty: type[pose.Result3d],
     item: Float[torch.Tensor, 'n_detections 74'],
 ) -> pose.Result3d:
-    boxes = item[:, :6, :]
-    keypoints = item[:, 6:, :].unflatten(-1, (17, 4))
+    boxes = item[:, :6]
+    keypoints = item[:, 6:].unflatten(-1, (17, 4))
     return pose.Result3d(boxes, keypoints, item.device)
 
 
+@beartype
 @overload
 def serialize(item: pose.Result) -> Float[torch.Tensor, 'n_detections 56']:  # noqa: F811
     flat_boxes = item.boxes  # n_detections x 5
@@ -29,6 +32,7 @@ def serialize(item: pose.Result) -> Float[torch.Tensor, 'n_detections 56']:  # n
     return torch.cat((flat_boxes, flat_keypoints), dim=1)
 
 
+@beartype
 @overload
 def deserialize(  # noqa: F811
     ty: type[pose.Result],
@@ -39,11 +43,13 @@ def deserialize(  # noqa: F811
     return pose.Result(boxes, keypoints, item.device)
 
 
+@beartype
 @overload
 def serialize(item: gaze.Result3d) -> Float[torch.Tensor, 'n_detections 4 3']:  # noqa: F811
     return torch.cat((item.eyes, item.directions), dim=1)
 
 
+@beartype
 @overload
 def deserialize(  # noqa: F811
     ty: type[gaze.Result3d],
@@ -54,11 +60,9 @@ def deserialize(  # noqa: F811
     return gaze.Result3d(eyes, directions, item.device)
 
 
-@beartype
 @dispatch
 def serialize(item: object) -> torch.Tensor: ...  # noqa: F811
 
 
-@beartype
 @dispatch
 def deserialize(ty: type, item: object) -> object: ...  # noqa: F811

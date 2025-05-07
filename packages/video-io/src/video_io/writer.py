@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import cast
@@ -23,9 +24,8 @@ class Writer[Context: Mapping[str, object]]:
         visualizer: Visualizer[Context] = Visualizer(cast(Context, {})),
     ) -> None:
         if destination.exists():
-            raise FileExistsError(
-                f'Destination file "{destination.absolute()}" already exists'
-            )
+            logging.warning(f'Overwriting video at {destination}')
+            destination.unlink()
 
         self.__visualizer = visualizer
 
