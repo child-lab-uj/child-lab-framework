@@ -5,7 +5,12 @@ from typing import Self, TypedDict, cast
 import numpy
 import torch
 from jaxtyping import Float, UInt8
-from torchvision.transforms import Compose, InterpolationMode, Normalize, Resize
+from torchvision.transforms import (
+    Compose,
+    ConvertImageDtype,
+    InterpolationMode,
+    Resize,
+)
 from ultralytics import YOLO as Yolo
 from ultralytics.engine.results import Results as YoloResults
 from video_io.annotation import Color
@@ -200,10 +205,7 @@ class Estimator:
                     (640, 640),
                     interpolation=InterpolationMode.NEAREST,
                 ),  # type: ignore[no-untyped-call]
-                Normalize(
-                    mean=(0.0, 0.0, 0.0),
-                    std=(1.0, 1.0, 1.0),
-                ),
+                ConvertImageDtype(torch.float32),
             ]
         )
 
@@ -215,6 +217,7 @@ class Estimator:
         self.device = device
         return self
 
+    @torch.inference_mode()
     def predict(self, frame: TensorRgbFrame) -> Result | None:
         prediction = self.yolo.predict(
             self.to_model(frame).to(self.device),
@@ -229,6 +232,7 @@ class Estimator:
         _, height, width = frame.shape
         return self.__interpret(prediction[0], height, width)
 
+    @torch.inference_mode()
     def predict_batch(
         self,
         frames: UInt8[torch.Tensor, 'batch 3 height width'],
