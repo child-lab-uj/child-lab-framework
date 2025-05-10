@@ -10,6 +10,7 @@ import cv2
 import mini_face as mf
 import numpy as np
 import scipy
+from icecream import ic
 
 from ...core.algebra import batch_normalized_3d
 from ...core.calibration import Calibration
@@ -327,7 +328,8 @@ class Estimator:
 
         calibration = input.calibration
         self.optical_center_x, self.optical_center_y = calibration.optical_center
-
+        ic(calibration.focal_length)
+        ic(calibration.optical_center)
         self.extractor = mf.gaze.Extractor(
             mode=mf.PredictionMode.VIDEO,
             focal_length=calibration.focal_length,
@@ -343,11 +345,12 @@ class Estimator:
         directions: list[FloatArray3 | None] = []  # in fact arrays are 1 x 2 x 3
 
         box: IntArray1
-
+        ic(faces.boxes)
         for box in faces.boxes:
             region = box.astype(np.uint32)
             region[2] -= region[0]
             region[3] -= region[1]
+            ic(region)
 
             detection = extractor.predict(frame, region)
 
@@ -355,6 +358,8 @@ class Estimator:
                 eyes.append(None)
                 directions.append(None)
                 continue
+
+            ic(detection)
 
             actor_directions = detection.directions
             mean_direction = np.mean(actor_directions, axis=1)
