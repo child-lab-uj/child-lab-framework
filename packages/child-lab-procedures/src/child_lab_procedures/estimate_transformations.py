@@ -16,7 +16,7 @@ from transformation_buffer.transformation import Transformation
 from video_io import Calibration, Reader, Writer
 from video_io.frame import ArrayRgbFrame
 
-from child_lab_procedures.garbage_collection import no_garbage_collection
+from child_lab_procedures.support.garbage_collection import no_garbage_collection
 
 
 @dataclass(frozen=True)

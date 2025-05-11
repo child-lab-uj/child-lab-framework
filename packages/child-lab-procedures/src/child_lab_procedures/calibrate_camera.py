@@ -26,7 +26,7 @@ from video_io.calibration import Calibration
 from video_io.reader import Reader
 from video_io.writer import Writer
 
-from child_lab_procedures.garbage_collection import no_garbage_collection
+from child_lab_procedures.support.garbage_collection import no_garbage_collection
 
 
 @dataclass(slots=True)
