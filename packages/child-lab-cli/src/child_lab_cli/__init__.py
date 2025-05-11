@@ -10,6 +10,7 @@ from .commands import (
     visualize,
     workspace,
 )
+from .log import setup_logging
 
 
 @click.group('child-lab')
@@ -27,4 +28,5 @@ cli.add_command(workspace)
 
 
 def child_lab() -> None:
+    setup_logging()
     cli(max_content_width=120)

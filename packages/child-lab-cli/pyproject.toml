@@ -16,6 +16,7 @@ dependencies = [
     "marker-detection",
     "transformation-buffer",
     "video-io",
+    "colorlog>=6.9.0",
 ]
 
 [tool.uv.sources]
