@@ -78,7 +78,9 @@ class Reader:
                 return None
 
             case index:
-                return self.__decoder.get_frame_at(index).data
+                return (
+                    self.__decoder.get_frame_at(index).data.contiguous().to(self.device)
+                )
 
     def read_batch(
         self,
@@ -90,5 +92,5 @@ class Reader:
         if len(indices) == 0:
             return None
 
-        frames = self.__decoder.get_frames_at(indices).data.to(self.device)
+        frames = self.__decoder.get_frames_at(indices).data.contiguous().to(self.device)
         return cast(torch.Tensor, self.__transformation(frames))
