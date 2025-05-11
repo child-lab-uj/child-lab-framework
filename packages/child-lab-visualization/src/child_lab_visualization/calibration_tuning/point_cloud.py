@@ -7,6 +7,8 @@ from marker_detection.aruco import Detector, Dictionary, MarkerRigidModel
 from video_io.calibration import Calibration
 from video_io.frame import ArrayRgbFrame, TensorRgbFrame
 
+from child_lab_visualization.schema import Frame
+
 DEFAULT_FOCAL_LENGTH = 3000.0
 
 
@@ -48,7 +50,9 @@ def show_point_cloud_with_calibration_controls(
 
     array_image: ArrayRgbFrame = image.permute((1, 2, 0)).cpu().numpy()
 
-    camera_frustum = server.scene.add_camera_frustum('/views/origin/camera', fov, aspect)
+    uri = Frame(0)
+
+    camera_frustum = server.scene.add_camera_frustum(str(uri.camera()), fov, aspect)
 
     starting_points = (
         Calibration(
@@ -64,7 +68,7 @@ def show_point_cloud_with_calibration_controls(
     colors = image.permute((1, 2, 0)).cpu().flatten(0, -2).numpy()
 
     point_cloud = server.scene.add_point_cloud(
-        '/views/origin/point_cloud',
+        str(uri.point_cloud()),
         points=starting_points,
         colors=colors,
         point_size=0.001,
@@ -116,9 +120,10 @@ def show_point_cloud_with_calibration_controls(
         ).predict(array_image)
 
         if markers is not None:
+            id: int
             for id, transformation in zip(markers.ids, markers.transformations):
                 server.scene.add_frame(
-                    f'/views/origin/markers/{id}',
+                    str(uri.frame_of_reference(str(id))),
                     axes_length=0.1,
                     axes_radius=0.0025,
                     wxyz=transformation.rotation_quaternion(),
