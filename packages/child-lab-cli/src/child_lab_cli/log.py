@@ -17,7 +17,7 @@ LOGGER_CONFIG = {
     'formatters': {
         'colored': {
             '()': 'colorlog.ColoredFormatter',
-            'fmt': '%(log_color)s[%(levelname)s]%(reset)s %(pathname)s %(message)s',
+            'fmt': '%(log_color)s[%(levelname)s]%(reset)s %(message)s',
             'log_colors': {
                 'DEBUG': 'blue',
                 'INFO': 'green',
