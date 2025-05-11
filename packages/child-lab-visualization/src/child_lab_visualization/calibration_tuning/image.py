@@ -11,6 +11,8 @@ from marker_detection.aruco import (
 from video_io.frame import ArrayRgbFrame
 from video_io.visualizer import Visualizer
 
+from child_lab_visualization.schema import Frame
+
 __all__ = ['show_image_with_calibration_controls']
 
 
@@ -38,9 +40,11 @@ def show_image_with_calibration_controls(
         'marker_rigid_model': marker_rigid_model,
     }
 
+    uri = Frame(0)
+
     height, width, _ = image.shape
     image_handle = server.scene.add_image(
-        'image/calibration-view',
+        str(uri.root()),
         image,
         render_width=width,
         render_height=height,
