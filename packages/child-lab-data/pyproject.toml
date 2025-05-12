@@ -7,7 +7,17 @@ authors = [
     { name = "Jan Smółka", email = "jp.smolka@gmail.com" }
 ]
 requires-python = ">=3.12.7"
-dependencies = []
+dependencies = [
+    "beartype>=0.20.2",
+    "jaxtyping>=0.3.2",
+    "plum-dispatch>=2.5.7",
+    "tensordict>=0.8.2",
+    "torch>=2.7.0",
+    "vpc",
+]
+
+[tool.uv.sources]
+vpc = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
