@@ -4,10 +4,9 @@ from pathlib import Path
 import click
 import torch
 import tqdm
+from child_lab_data.io.point_cloud import Writer as PointCloudWriter
 from depth_estimation import depth_pro
-from jaxtyping import UInt8
 from serde.yaml import from_yaml
-from torchvision.transforms import Compose, ConvertImageDtype, Normalize, Resize
 from video_io.calibration import Calibration
 from video_io.reader import Reader
 
@@ -55,9 +54,8 @@ def generate_pointcloud(
         raise FileNotFoundError(f'Video {video_name} not found in {workspace.input}.')
 
     output = workspace.output / 'points' / video_name
-
-    if not output.is_dir():
-        output.mkdir()
+    output.mkdir(exist_ok=True)
+    point_cloud_writer = PointCloudWriter(output)
 
     calibration = from_yaml(Calibration, video.calibration.read_text())
     fx = calibration.focal_length[0]
@@ -89,61 +87,17 @@ def generate_pointcloud(
         desc='Processing batches of frames',
     )
 
-    for i, frames in enumerate(batched_frames(reader, batch_size)):
+    for frame_batch in batched_frames(reader, batch_size):
+        # TODO: Process whole batches of frames.
         depths = [
             depth_estimator.predict(frame.to(main_device), fx).depth.cpu()
-            for frame in frames.unbind()
+            for frame in frame_batch.unbind()
         ]
 
-        perspective_points = torch.stack(
-            [calibration.unproject_depth(depth) for depth in depths]
-        )
-
-        torch.save(perspective_points, output / f'points_{i}.pt')
+        for depth in depths:
+            point_cloud = calibration.unproject_depth(depth)
+            point_cloud_writer.write(point_cloud)
 
         progress_bar.update()
 
     click.echo('Done!')
-
-
-# TODO: Delete this from here
-class DepthEstimator:
-    device: torch.device
-    model: depth_pro.DepthPro
-    model_config: depth_pro.Configuration
-    to_model: Compose
-
-    def __init__(self, checkpoint: Path, device: torch.device) -> None:
-        self.device = device
-
-        config = depth_pro.Configuration(checkpoint=checkpoint)
-        self.model_config = config
-        self.model = depth_pro.DepthPro(config, device, torch.half)
-
-        self.to_model = Compose(  # type: ignore[no-untyped-call]
-            [
-                ConvertImageDtype(torch.half),
-                Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),  # type: ignore[no-untyped-call]
-            ]
-        )
-
-    def predict(
-        self,
-        frame_batch: UInt8[torch.Tensor, 'batch 3 height width'],
-        focal_length_x: float | None = None,
-    ) -> torch.Tensor:
-        *_, height, width = frame_batch.shape
-
-        scaled_focal_length = (
-            (focal_length_x * self.model.input_image_size / width)
-            if focal_length_x is not None
-            else None
-        )
-
-        result = self.model.predict(self.to_model(frame_batch), scaled_focal_length)
-
-        return (  # type: ignore[no-any-return] # mypy infers Any here for some reason.
-            Resize((height, width))  # type: ignore[no-untyped-call]
-            .forward(result.depth)
-            .to(torch.float32)
-        )

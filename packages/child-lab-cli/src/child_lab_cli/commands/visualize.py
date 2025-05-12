@@ -3,6 +3,7 @@ from pathlib import Path
 import click
 import torch
 import viser
+from child_lab_data.io.point_cloud import Reader as PointCloudReader
 from child_lab_visualization import show_pointcloud_and_camera_poses
 from serde.json import from_json
 from serde.yaml import from_yaml
@@ -48,14 +49,14 @@ def visualize(
     calibration = from_yaml(Calibration, video.calibration.read_text())
     buffer = from_json(Buffer[str], buffer_location.read_text())
 
-    points_files = sorted(points.glob('*'), key=lambda path: path.stem)
+    point_cloud_reader = PointCloudReader(points)
 
     server = viser.ViserServer()
     show_pointcloud_and_camera_poses(
         server,
         video_name,
         reader,
-        points_files,
+        point_cloud_reader,
         calibration,
         buffer,
     )

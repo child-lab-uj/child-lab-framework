@@ -1,7 +1,5 @@
-from pathlib import Path
-
 import numpy
-import torch
+from child_lab_data.io.point_cloud import Reader as PointCloudReader
 from transformation_buffer.buffer import Buffer
 from video_io.calibration import Calibration
 from video_io.reader import Reader
@@ -14,7 +12,7 @@ def show_pointcloud_and_camera_poses(
     server: ViserServer,
     origin_name: str,
     reader: Reader,
-    points_files: list[Path],
+    point_cloud_reader: PointCloudReader,
     calibration: Calibration,
     buffer: Buffer,
 ) -> None:
@@ -37,7 +35,7 @@ def show_pointcloud_and_camera_poses(
                 fov,
                 aspect,
                 wxyz=transformation.rotation_quaternion().numpy(),
-                position=transformation.translation().div(1000.0).numpy(),
+                position=transformation.translation().numpy(),
             )
 
         server.scene.add_frame(
@@ -45,19 +43,23 @@ def show_pointcloud_and_camera_poses(
             axes_length=0.1,
             axes_radius=0.0025,
             wxyz=transformation.rotation_quaternion().numpy(),
-            # Dividing by 1000 is a workaround for working with old intrinsic parameters.
-            position=transformation.translation().div(1000.0).numpy(),
+            position=transformation.translation().numpy(),
             visible=False,
         )
 
-    points_first_batch: torch.Tensor = torch.load(points_files[0])
-    frames_first_batch = reader.read_batch(points_first_batch.shape[0])
-    assert frames_first_batch is not None
+    point_cloud = point_cloud_reader.read()
+    assert point_cloud is not None
+
+    frame = reader.read()
+    assert frame is not None
+
+    points = point_cloud.permute((1, 2, 0)).flatten(0, -2).numpy()
+    colors = frame.permute((1, 2, 0)).flatten(0, -2).numpy()
 
     server.scene.add_point_cloud(
         str(uri.point_cloud(origin_name)),
-        points=points_first_batch[0].permute((1, 2, 0)).flatten(0, -2).numpy(),
-        colors=frames_first_batch[0].permute((1, 2, 0)).flatten(0, -2).numpy(),
+        points=points,
+        colors=colors,
         point_size=0.001,
         point_shape='circle',
         position=(0.0, 0.0, -2.0),
