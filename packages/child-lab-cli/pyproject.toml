@@ -10,6 +10,7 @@ dependencies = [
     "torch>=2.6.0",
     "tqdm>=4.67.1",
     "viser>=0.2.23",
+    "child-lab-data",
     "child-lab-visualization",
     "child-lab-procedures",
     "depth-estimation",
@@ -20,6 +21,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
+child-lab-data = { workspace = true }
 child-lab-procedures = { workspace = true }
 child-lab-visualization = { workspace = true }
 depth-estimation = { workspace = true }

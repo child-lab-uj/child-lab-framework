@@ -135,6 +135,7 @@ name = "child-lab-cli"
 version = "0.1.0"
 source = { editable = "packages/child-lab-cli" }
 dependencies = [
+    { name = "child-lab-data" },
     { name = "child-lab-procedures" },
     { name = "child-lab-visualization" },
     { name = "click" },
@@ -151,6 +152,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "child-lab-data", editable = "packages/child-lab-data" },
     { name = "child-lab-procedures", editable = "packages/child-lab-procedures" },
     { name = "child-lab-visualization", editable = "packages/child-lab-visualization" },
     { name = "click", specifier = ">=8.1.8" },
@@ -305,6 +307,7 @@ name = "child-lab-visualization"
 version = "0.1.0"
 source = { editable = "packages/child-lab-visualization" }
 dependencies = [
+    { name = "child-lab-data" },
     { name = "depth-estimation" },
     { name = "numpy" },
     { name = "torch" },
@@ -315,6 +318,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "child-lab-data", editable = "packages/child-lab-data" },
     { name = "depth-estimation", editable = "packages/depth-estimation" },
     { name = "numpy", specifier = ">=1.26.4" },
     { name = "torch", specifier = ">=2.6.0" },

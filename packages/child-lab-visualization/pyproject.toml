@@ -9,12 +9,14 @@ dependencies = [
     "numpy>=1.26.4",
     "torch>=2.6.0",
     "viser>=0.2.23",
+    "child-lab-data",
     "depth-estimation",
     "transformation-buffer",
     "video-io",
 ]
 
 [tool.uv.sources]
+child-lab-data = { workspace = true }
 depth-estimation = { workspace = true }
 transformation-buffer = { workspace = true }
 video-io = { workspace = true }
