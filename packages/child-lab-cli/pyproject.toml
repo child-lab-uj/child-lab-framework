@@ -17,6 +17,7 @@ dependencies = [
     "marker-detection",
     "transformation-buffer",
     "video-io",
+    "vpc",
     "colorlog>=6.9.0",
 ]
 
@@ -28,6 +29,7 @@ depth-estimation = { workspace = true }
 marker-detection = { workspace = true }
 transformation-buffer = { workspace = true }
 video-io = { workspace = true }
+vpc = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

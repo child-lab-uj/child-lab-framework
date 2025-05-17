@@ -148,6 +148,7 @@ dependencies = [
     { name = "transformation-buffer" },
     { name = "video-io" },
     { name = "viser" },
+    { name = "vpc" },
 ]
 
 [package.metadata]
@@ -165,6 +166,7 @@ requires-dist = [
     { name = "transformation-buffer", editable = "packages/transformation-buffer" },
     { name = "video-io", editable = "packages/video-io" },
     { name = "viser", specifier = ">=0.2.23" },
+    { name = "vpc", editable = "packages/vpc" },
 ]
 
 [[package]]
