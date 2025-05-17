@@ -52,7 +52,9 @@ class Writer[Context: Mapping[str, object]]:
         frames: UInt8[torch.Tensor, 'batch 3 height width'],
         annotations: Iterable[Iterable[Visualizable[Context]]] | None = None,
     ) -> None:
-        raw_frames = frames.permute(0, 2, 3, 1).flip(-1).cpu().detach().numpy()
+        raw_frames = (
+            frames.permute(0, 2, 3, 1).flip(-1).cpu().detach().contiguous().numpy()
+        )
 
         if annotations is not None:
             self.__visualizer.annotate_batch(raw_frames, annotations)
