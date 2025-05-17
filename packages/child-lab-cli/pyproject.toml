@@ -19,6 +19,8 @@ dependencies = [
     "video-io",
     "vpc",
     "colorlog>=6.9.0",
+    "types-tqdm>=4.67.0.20250516",
+    "opencv-python>=4.11.0.86",
 ]
 
 [tool.uv.sources]
