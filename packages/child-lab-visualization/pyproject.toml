@@ -13,6 +13,7 @@ dependencies = [
     "depth-estimation",
     "transformation-buffer",
     "video-io",
+    "vpc",
 ]
 
 [tool.uv.sources]
@@ -20,6 +21,7 @@ child-lab-data = { workspace = true }
 depth-estimation = { workspace = true }
 transformation-buffer = { workspace = true }
 video-io = { workspace = true }
+vpc = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
