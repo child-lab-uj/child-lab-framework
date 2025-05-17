@@ -139,10 +139,16 @@ def estimate_transformations(
     dictionary = Dictionary.parse(marker_dictionary)
     assert dictionary is not None
 
+    arudie = Cube[str](
+        marker_size,
+        # TODO: Read the wall markers from external configuration
+        ('marker_42', 'marker_43', 'marker_44', 'marker_45', 'marker_46', 'marker_47'),
+    )
+
     configuration = Configuration(
         rigid_model,
         dictionary,
-        arudice=DEFAULT_ARUDICE,
+        arudice=[arudie],
     )
 
     procedure = Procedure(configuration, video_io_contexts)
@@ -161,11 +167,3 @@ def estimate_transformations(
             buffer_destination.touch()
             buffer_destination.write_text(to_json(buffer))
             click.echo('Done!')
-
-
-DEFAULT_ARUDICE = [
-    Cube[str](
-        50.0,
-        ('marker_42', 'marker_43', 'marker_44', 'marker_45', 'marker_46', 'marker_47'),
-    )
-]
