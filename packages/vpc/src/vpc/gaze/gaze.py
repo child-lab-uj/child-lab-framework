@@ -14,7 +14,7 @@ from video_io.annotation import Color
 from video_io.calibration import Calibration
 from video_io.frame import ArrayRgbFrame, TensorRgbFrame
 
-from .. import face
+from .. import face, pose
 
 __all__ = ['Estimator', 'Result', 'Result3d']
 
@@ -88,6 +88,27 @@ class Result3d:
 
     # For numerical stability during transformation of a normalized `directions`
     __STABILIZING_MULTIPLIER: ClassVar[float] = 100.0
+
+    def align(self, poses: pose.Result3d) -> 'Result3d':
+        directions = self.directions.clone()
+        eyes = poses.keypoints[
+            :,
+            [pose.model.YoloKeypoint.LEFT_EYE, pose.model.YoloKeypoint.RIGHT_EYE],
+            :3,
+        ].to(self.device, copy=True)
+
+        # eyes = self.eyes.clone()
+        # gaze_eye_depths = eyes[..., -1].unsqueeze(-1)  # (n_detections, 2, 1)
+        # pose_eye_depths = poses.keypoints[  # (n_detections, 2, 1)
+        #     :,
+        #     [pose.model.YoloKeypoint.LEFT_EYE, pose.model.YoloKeypoint.RIGHT_EYE],
+        #     -1,
+        # ].unsqueeze(-1)
+
+        # scale = pose_eye_depths / gaze_eye_depths  # (n_detections, 2, 1)
+        # eyes *= scale
+
+        return Result3d(eyes, directions, self.device)
 
     def project(self, calibration: Calibration) -> Result:
         cx, cy = calibration.optical_center

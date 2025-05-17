@@ -69,49 +69,36 @@ class Result:
     def cpu(self) -> 'Result':
         return Result(self.boxes.cpu(), self.keypoints.cpu(), torch.device('cpu'))
 
-    def unproject(
-        self,
-        calibration: Calibration,
-        depth: Float[torch.Tensor, 'height width'],
-    ) -> 'Result3d':
+    def unproject(self, point_cloud: Float[torch.Tensor, '3 height width']) -> 'Result3d':
         device = self.device
-        if depth.device != device:
-            depth = depth.to(device)
+        if point_cloud.device != device:
+            point_cloud = point_cloud.to(device)
 
-        height, width = depth.shape
+        _, height, width = point_cloud.shape
         n_actors, n_keypoints, _ = self.keypoints.shape
 
         flat_keypoints_with_confidence = self.keypoints.flatten(0, 1)
-        keypoints = flat_keypoints_with_confidence[:, :2].clone()
-        confidence = flat_keypoints_with_confidence[:, 2].unsqueeze(-1).clone()
+        flat_keypoints = flat_keypoints_with_confidence[:, :2].clone()
+        flat_confidence = flat_keypoints_with_confidence[:, 2].unsqueeze(-1).clone()
+        flat_coordinates = flat_keypoints.to(torch.int32)
 
-        keypoints_truncated = keypoints.to(torch.int32)
+        flat_unprojected_keypoints = point_cloud[
+            :,
+            flat_coordinates[:, 1].clamp(0, height - 1),
+            flat_coordinates[:, 0].clamp(0, width - 1),
+        ].T
 
-        keypoints_depth = depth[
-            keypoints_truncated[:, 1].clamp(0, height - 1),
-            keypoints_truncated[:, 0].clamp(0, width - 1),
-        ].reshape(-1, 1)
-
-        cx, cy = calibration.optical_center
-        fx, fy = calibration.focal_length
-
-        keypoints[:, 0] -= cx
-        keypoints[:, 1] -= cy
-        keypoints *= keypoints_depth
-        keypoints[:, 0] /= fx
-        keypoints[:, 1] /= fy
-
-        unprojected_keypoints = torch.cat(
-            (keypoints, keypoints_depth, confidence),
+        unprojected_keypoints_with_confidence = torch.cat(
+            (flat_unprojected_keypoints, flat_confidence),
             dim=1,
-        ).reshape(n_actors, n_keypoints, -1)
+        ).unflatten(0, (n_actors, n_keypoints))
 
         # TODO(#62): Unproject the bounding boxes properly.
         unprojected_boxes = self.boxes
 
         return Result3d(
             unprojected_boxes,
-            unprojected_keypoints,
+            unprojected_keypoints_with_confidence,
             self.device,
         )
 
