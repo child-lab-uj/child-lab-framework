@@ -4,12 +4,17 @@ import click
 import torch
 import viser
 from child_lab_data.io.point_cloud import Reader as PointCloudReader
-from child_lab_visualization import show_pointcloud_and_camera_poses
+from child_lab_data.io.result_tensor import Reader as ResultReader
+from child_lab_visualization.camera import show_camera
+from child_lab_visualization.marker import show_marker
+from child_lab_visualization.point_cloud import show_point_cloud
+from child_lab_visualization.vpc_results import show_vpc_results
 from serde.json import from_json
 from serde.yaml import from_yaml
 from transformation_buffer.buffer import Buffer
 from video_io.calibration import Calibration
-from video_io.reader import Reader
+from video_io.reader import Reader as VideoReader
+from vpc import gaze, pose
 
 from ..workspace import Workspace, WorkspaceModelError
 
@@ -22,42 +27,77 @@ def visualize(
     video_name: str,
 ) -> None:
     """
-    Display a point cloud for <video> from <workspace> in a local Viser server.
+    Display point clouds, cameras, markers and VPC results available in <workspace>
+    in a local Viser server, in world coordinates defined by <video>.
     """
 
     workspace = Workspace.in_directory(workspace_root)
-    points = workspace.output / 'points' / video_name
     buffer_location = workspace.transformation / 'buffer.json'
-
-    if not points.is_dir():
-        raise WorkspaceModelError(
-            f'{points} should contain serialized point clouds for video {video_name}'
-        )
 
     if not buffer_location.is_file():
         raise WorkspaceModelError(
             f'{buffer_location} should contain the serialized transformation buffer'
         )
 
-    for video in workspace.calibrated_videos():
-        if video.name == video_name:
-            break
-    else:
-        raise FileNotFoundError(f'Video {video_name} not found in {workspace.input}.')
-
-    reader = Reader(video.location, torch.device('cpu'))
-    calibration = from_yaml(Calibration, video.calibration.read_text())
-    buffer = from_json(Buffer[str], buffer_location.read_text())
-
-    point_cloud_reader = PointCloudReader(points)
+    transformation_buffer = from_json(Buffer[str], buffer_location.read_text())
 
     server = viser.ViserServer()
-    show_pointcloud_and_camera_poses(
-        server,
-        video_name,
-        reader,
-        point_cloud_reader,
-        calibration,
-        buffer,
-    )
+
+    frames = transformation_buffer.frames_visible_from(video_name)
+    frames.append(video_name)
+
+    for frame_name in frames:
+        transformation = transformation_buffer[(frame_name, video_name)]
+        assert transformation is not None
+
+        if 'marker' in frame_name:
+            show_marker(server, frame_name, transformation)
+            continue
+
+        video = workspace.calibrated_videos().find(lambda video: video.name == frame_name)
+        if video is None:
+            continue
+
+        video_reader = VideoReader(video.location, torch.device('cpu'))
+        calibration = from_yaml(Calibration, video.calibration.read_text())
+
+        show_camera(
+            server,
+            frame_name,
+            video_reader.metadata,
+            calibration,
+            transformation,
+        )
+
+        point_cloud_location = workspace.output / 'points' / frame_name
+        pose_location = workspace.output / 'analysis' / 'pose' / frame_name
+        gaze_location = workspace.output / 'analysis' / 'gaze' / frame_name
+
+        if point_cloud_location.is_dir():
+            point_cloud_reader = PointCloudReader(point_cloud_location)
+            show_point_cloud(
+                server,
+                frame_name,
+                video_reader,
+                point_cloud_reader,
+                transformation,
+            )
+
+        if pose_location.is_dir() and gaze_location.is_dir():
+            pose_reader = ResultReader(
+                pose.Result3d,
+                workspace.output / 'analysis' / 'pose' / frame_name,
+            )
+            gaze_reader = ResultReader(
+                gaze.Result3d,
+                workspace.output / 'analysis' / 'gaze' / frame_name,
+            )
+            show_vpc_results(
+                server,
+                frame_name,
+                transformation,
+                pose_reader,
+                gaze_reader,
+            )
+
     server.sleep_forever()
