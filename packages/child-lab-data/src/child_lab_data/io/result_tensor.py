@@ -59,7 +59,7 @@ class Writer[T: Writeable]:
         if id is None:
             id = next(self.counter)
 
-        path = self.directory / f'{id}.ply'
+        path = self.directory / f'{id}.pt'
         if path.is_file():
             logging.warning(f'Overwriting the existing result at {path}')
 

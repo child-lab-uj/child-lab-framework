@@ -3,23 +3,26 @@ name = "child-lab-procedures"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "Jan Smółka", email = "jp.smolka@gmail.com" }
-]
+authors = [{ name = "Jan Smółka", email = "jp.smolka@gmail.com" }]
 requires-python = ">=3.12.7"
 dependencies = [
     "opencv-python>=4.11.0.86",
     "numpy>=1.26.4",
     "torch>=2.6.0",
     "jaxtyping>=0.3.0",
+    "plum-dispatch>=2.5.7",
+    "child-lab-data",
     "video-io",
+    "vpc",
     "marker-detection",
     "transformation-buffer",
 ]
 
 [tool.uv.sources]
+child-lab-data = { workspace = true }
 video-io = { workspace = true }
-marker-detection = {workspace = true }
+vpc = { workspace = true }
+marker-detection = { workspace = true }
 transformation-buffer = { workspace = true }
 
 [build-system]

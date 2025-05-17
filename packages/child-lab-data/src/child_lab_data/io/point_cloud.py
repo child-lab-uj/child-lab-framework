@@ -36,13 +36,9 @@ class Reader:
 
         serialized_point_cloud: TensorDict = torch.load(path)
 
-        u: BFloat16[torch.Tensor, '3 bond_dim height']
-        s: BFloat16[torch.Tensor, '3 bond_dim']
-        vt: BFloat16[torch.Tensor, '3 bond_dim width']
-
-        u = serialized_point_cloud['u']
-        s = serialized_point_cloud['s'].squeeze(-1)
-        vt = serialized_point_cloud['vt']
+        u: BFloat16[torch.Tensor, '3 bond_dim height'] = serialized_point_cloud['u']
+        s: BFloat16[torch.Tensor, '3 bond_dim'] = serialized_point_cloud['s'].squeeze(-1)
+        vt: BFloat16[torch.Tensor, '3 bond_dim width'] = serialized_point_cloud['vt']
 
         point_cloud: Float[torch.Tensor, '3 height width']
         point_cloud = torch.einsum('cbh, cb, cbw -> chw', u, s, vt).to(torch.float32)
