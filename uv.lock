@@ -142,10 +142,12 @@ dependencies = [
     { name = "colorlog" },
     { name = "depth-estimation" },
     { name = "marker-detection" },
+    { name = "opencv-python" },
     { name = "pyserde" },
     { name = "torch" },
     { name = "tqdm" },
     { name = "transformation-buffer" },
+    { name = "types-tqdm" },
     { name = "video-io" },
     { name = "viser" },
     { name = "vpc" },
@@ -160,10 +162,12 @@ requires-dist = [
     { name = "colorlog", specifier = ">=6.9.0" },
     { name = "depth-estimation", editable = "packages/depth-estimation" },
     { name = "marker-detection", editable = "packages/marker-detection" },
+    { name = "opencv-python", specifier = ">=4.11.0.86" },
     { name = "pyserde", specifier = ">=0.23.0" },
     { name = "torch", specifier = ">=2.6.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "transformation-buffer", editable = "packages/transformation-buffer" },
+    { name = "types-tqdm", specifier = ">=4.67.0.20250516" },
     { name = "video-io", editable = "packages/video-io" },
     { name = "viser", specifier = ">=0.2.23" },
     { name = "vpc", editable = "packages/vpc" },
@@ -195,22 +199,7 @@ requires-dist = [
 [[package]]
 name = "child-lab-framework"
 version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "click" },
-    { name = "colorama" },
-    { name = "depth-pro" },
-    { name = "kornia" },
-    { name = "mini-face" },
-    { name = "more-itertools" },
-    { name = "networkx" },
-    { name = "opencv-python" },
-    { name = "pandas" },
-    { name = "scipy" },
-    { name = "types-networkx" },
-    { name = "types-tqdm" },
-    { name = "ultralytics" },
-]
+source = { virtual = "." }
 
 [package.dev-dependencies]
 dev = [
@@ -238,21 +227,6 @@ workspace = [
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "click", specifier = ">=8.1.7" },
-    { name = "colorama", specifier = ">=0.4.6" },
-    { name = "depth-pro", git = "https://github.com/child-lab-uj/depth-pro.git" },
-    { name = "kornia", specifier = ">=0.7.4" },
-    { name = "mini-face", specifier = ">=0.1.3" },
-    { name = "more-itertools", specifier = ">=10.5.0" },
-    { name = "networkx", specifier = "~=3.3" },
-    { name = "opencv-python", specifier = ">=4.10.0.84" },
-    { name = "pandas", specifier = ">=2.2.2" },
-    { name = "scipy", specifier = ">=1.14.1" },
-    { name = "types-networkx", specifier = ">=3.4.2.20241227" },
-    { name = "types-tqdm", specifier = ">=4.67.0.20241221" },
-    { name = "ultralytics", specifier = ">=8.2.72" },
-]
 
 [package.metadata.requires-dev]
 dev = [
@@ -269,7 +243,7 @@ workspace = [
     { name = "child-lab-annotation", editable = "packages/child-lab-annotation" },
     { name = "child-lab-cli", editable = "packages/child-lab-cli" },
     { name = "child-lab-data", editable = "packages/child-lab-data" },
-    { name = "child-lab-framework", editable = "." },
+    { name = "child-lab-framework", virtual = "." },
     { name = "child-lab-procedures", editable = "packages/child-lab-procedures" },
     { name = "child-lab-visualization", editable = "packages/child-lab-visualization" },
     { name = "depth-estimation", editable = "packages/depth-estimation" },
@@ -426,17 +400,6 @@ requires-dist = [
     { name = "timm", specifier = ">=1.0.15" },
     { name = "torch", specifier = ">=2.6.0" },
     { name = "torchvision", specifier = ">=0.21.0" },
-]
-
-[[package]]
-name = "depth-pro"
-version = "0.1.0"
-source = { git = "https://github.com/child-lab-uj/depth-pro.git#4e608d14916b27dd7017412a56fc902262b16f21" }
-dependencies = [
-    { name = "numpy" },
-    { name = "timm" },
-    { name = "torch" },
-    { name = "torchvision" },
 ]
 
 [[package]]
@@ -1877,7 +1840,6 @@ version = "0.1.0"
 source = { editable = "packages/transformation-buffer" }
 dependencies = [
     { name = "jaxtyping" },
-    { name = "kornia" },
     { name = "more-itertools" },
     { name = "plum-dispatch" },
     { name = "pyserde", extra = ["numpy"] },
@@ -1894,7 +1856,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "jaxtyping", specifier = ">=0.2.37" },
-    { name = "kornia", specifier = ">=0.8.0" },
     { name = "more-itertools", specifier = ">=10.6.0" },
     { name = "plum-dispatch", specifier = ">=2.5.7" },
     { name = "pyserde", extras = ["numpy"], specifier = ">=0.23.0" },
@@ -1965,39 +1926,27 @@ wheels = [
 ]
 
 [[package]]
-name = "types-networkx"
-version = "3.4.2.20250426"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/9f/e5/6dd2000b990885cb966aefccba74c44cd1862e4032ea1360492ef918fdec/types_networkx-3.4.2.20250426.tar.gz", hash = "sha256:f1b73e144fb7072a5c1625fd5edc72bfaf93d4844eab4706b786faa10b2dc1a0", size = 55232, upload-time = "2025-04-26T02:54:49.243Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b8/bb/a089be583f77ae94fbbc118380e096f8273b592c15ca6b5fef50adb84a17/types_networkx-3.4.2.20250426-py3-none-any.whl", hash = "sha256:ac3e48252ab3333777aea5dcf0849e744216d8bd1c70868e6d37659bf8fcbd5d", size = 137520, upload-time = "2025-04-26T02:54:48.201Z" },
-]
-
-[[package]]
 name = "types-requests"
-version = "2.32.0.20250328"
+version = "2.32.0.20250515"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/00/7d/eb174f74e3f5634eaacb38031bbe467dfe2e545bc255e5c90096ec46bc46/types_requests-2.32.0.20250328.tar.gz", hash = "sha256:c9e67228ea103bd811c96984fac36ed2ae8da87a36a633964a21f199d60baf32", size = 22995, upload-time = "2025-03-28T02:55:13.271Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/06/c1/cdc4f9b8cfd9130fbe6276db574f114541f4231fcc6fb29648289e6e3390/types_requests-2.32.0.20250515.tar.gz", hash = "sha256:09c8b63c11318cb2460813871aaa48b671002e59fda67ca909e9883777787581", size = 23012, upload-time = "2025-05-15T03:04:31.817Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cc/15/3700282a9d4ea3b37044264d3e4d1b1f0095a4ebf860a99914fd544e3be3/types_requests-2.32.0.20250328-py3-none-any.whl", hash = "sha256:72ff80f84b15eb3aa7a8e2625fffb6a93f2ad5a0c20215fc1dcfa61117bcb2a2", size = 20663, upload-time = "2025-03-28T02:55:11.946Z" },
+    { url = "https://files.pythonhosted.org/packages/fe/0f/68a997c73a129287785f418c1ebb6004f81e46b53b3caba88c0e03fcd04a/types_requests-2.32.0.20250515-py3-none-any.whl", hash = "sha256:f8eba93b3a892beee32643ff836993f15a785816acca21ea0ffa006f05ef0fb2", size = 20635, upload-time = "2025-05-15T03:04:30.5Z" },
 ]
 
 [[package]]
 name = "types-tqdm"
-version = "4.67.0.20250417"
+version = "4.67.0.20250516"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "types-requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/54/1ce092a682af4b2995a3708a8830dc15502927f3586064d9ea3738a562d1/types_tqdm-4.67.0.20250417.tar.gz", hash = "sha256:bfcc4099d8d48df54e53f3ea64708cbcc1d1c4039ca7619594189da8c03c7be2", size = 17179, upload-time = "2025-04-17T02:58:17.07Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bd/07/eb40de2dc2ff2d1a53180330981b1bdb42313ab4e1b11195d8d64c878b3c/types_tqdm-4.67.0.20250516.tar.gz", hash = "sha256:230ccab8a332d34f193fc007eb132a6ef54b4512452e718bf21ae0a7caeb5a6b", size = 17232, upload-time = "2025-05-16T03:09:52.091Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/18/48/320971ed192f4ac207305a75fa8366efb1b6a90a24db0513f492668d87c0/types_tqdm-4.67.0.20250417-py3-none-any.whl", hash = "sha256:d43fc9a295be1f94083c744a09099c033c4dea293ff9a07bab9f34bfbffaaf80", size = 24057, upload-time = "2025-04-17T02:58:15.705Z" },
+    { url = "https://files.pythonhosted.org/packages/3b/92/df621429f098fc573a63a8ba348e731c3051b397df0cff278f8887f28d24/types_tqdm-4.67.0.20250516-py3-none-any.whl", hash = "sha256:1dd9b2c65273f2342f37e5179bc6982df86b6669b3376efc12aef0a29e35d36d", size = 24032, upload-time = "2025-05-16T03:09:51.226Z" },
 ]
 
 [[package]]
