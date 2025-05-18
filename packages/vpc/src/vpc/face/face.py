@@ -21,6 +21,8 @@ class VisualizationContext(TypedDict):
 
     face_draw_confidence: bool
 
+    face_blur: bool
+
 
 @dataclass(frozen=True)
 class Result:
@@ -35,10 +37,20 @@ class Result:
         if context['face_draw_bounding_boxes']:
             color = context['face_bounding_box_color']
             thickness = context['face_bounding_box_thickness']
+            blur = context['face_blur']
 
             box: list[int]
             for box in self.boxes.cpu().to(torch.int32).tolist():
                 x1, y1, x2, y2 = box
+
+                if x1 <= x2 or y1 <= y2:
+                    continue
+
+                if blur:
+                    frame_view = frame[y1:y2, x1:x2, :]
+                    blurred = cv2.blur(frame_view, (59, 59))
+                    frame[y1:y2, x1:x2, :] = blurred
+
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
 
         # TODO: annotate the bounding boxes with confidence.

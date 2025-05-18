@@ -103,6 +103,7 @@ def process(
         'face_bounding_box_color': (0, 0, 255),
         'face_bounding_box_thickness': 2,
         'face_draw_confidence': False,
+        'face_blur': False,
         'gaze_draw_lines': True,
         'gaze_line_color': (0, 255, 0),
         'gaze_line_length': 100.0,
