@@ -9,11 +9,13 @@ from child_lab_visualization.calibration_tuning.image import (
     show_image_with_calibration_controls,
 )
 from child_lab_visualization.calibration_tuning.point_cloud import (
+    Input,
     show_point_cloud_with_calibration_controls,
 )
 from depth_estimation.depth_pro import Configuration, DepthPro
 from marker_detection.aruco import Dictionary, MarkerRigidModel
-from video_io.reader import Reader
+from transformation_buffer.rigid_model import Cube
+from video_io.reader import Reader as VideoReader
 
 from child_lab_cli.workspace.model import Video, Workspace
 
@@ -36,7 +38,7 @@ class Mode(click.ParamType):
 
 @click.command('tune-calibration')
 @click.argument('workspace-root', type=Path, metavar='<workspace>')
-@click.argument('video-name', type=str, metavar='<video>')
+@click.argument('video-names', type=str, nargs=-1, metavar='<videos>')
 @click.option(
     '--marker-dictionary',
     type=str,
@@ -68,7 +70,7 @@ class Mode(click.ParamType):
 )
 def tune_calibration(
     workspace_root: Path,
-    video_name: str,
+    video_names: str,
     marker_dictionary: str,
     marker_size: float,
     mode: Literal['image', 'point-cloud'],
@@ -84,6 +86,13 @@ def tune_calibration(
 
     match mode:
         case 'image':
+            if len(video_names) != 1:
+                raise click.ClickException(
+                    'Exactly one video is required in "image" mode'
+                )
+
+            video_name = video_names[0]
+
             video = workspace.videos().find(lambda video: video.name == video_name)
             if video is None:
                 raise click.ClickException(
@@ -94,13 +103,21 @@ def tune_calibration(
             handle_image_mode(server, video, marker_rigid_model, dictionary)
 
         case 'point-cloud':
-            video = workspace.videos().find(lambda video: video.name == video_name)
-            if video is None:
+            videos: list[Video] = []
+
+            for video_name in video_names:
+                video = workspace.videos().find(lambda video: video.name == video_name)
+                if video is None:
+                    raise click.ClickException(
+                        f'Input video {video_name} not found in {workspace.input}'
+                    )
+                videos.append(video)
+
+            if depth_pro_checkpoint is None:
                 raise click.ClickException(
-                    f'Input video {video_name} not found in {workspace.input}'
+                    '--depth-pro-checkpoint is required in "point-cloud" mode'
                 )
 
-            assert depth_pro_checkpoint is not None
             depth_estimator = DepthPro(
                 Configuration(depth_pro_checkpoint),
                 torch.device(device),
@@ -110,7 +127,7 @@ def tune_calibration(
             server = viser.ViserServer()
             handle_point_cloud_mode(
                 server,
-                video,
+                videos,
                 marker_rigid_model,
                 dictionary,
                 depth_estimator,
@@ -126,7 +143,7 @@ def handle_image_mode(
     marker_rigid_model: MarkerRigidModel,
     marker_dictionary: Dictionary,
 ) -> None:
-    reader = Reader(video.location)
+    reader = VideoReader(video.location)
 
     first_frame_tensor = reader.read()
     assert first_frame_tensor is not None
@@ -143,22 +160,35 @@ def handle_image_mode(
 
 def handle_point_cloud_mode(
     server: viser.ViserServer,
-    video: Video,
+    videos: list[Video],
     marker_rigid_model: MarkerRigidModel,
     marker_dictionary: Dictionary,
     depth_estimator: DepthPro,
     device: torch.device,
 ) -> None:
-    reader = Reader(video.location)
+    inputs: list[Input] = []
 
-    first_frame_tensor = reader.read()
-    assert first_frame_tensor is not None
+    for video in videos:
+        reader = VideoReader(video.location)
+
+        first_frame = reader.read()
+        assert first_frame is not None
+        first_frame = first_frame.to(torch.device(device))
+
+        inputs.append(Input(video.name, video.location, first_frame))
+        del reader  # make sure all videos are closes before proceeding to the next part.
+
+    arudie = Cube[str](
+        marker_rigid_model.square_size + 2 * marker_rigid_model.border,
+        # TODO: Read the wall markers from external configuration
+        ('marker_42', 'marker_43', 'marker_44', 'marker_45', 'marker_46', 'marker_47'),
+    )
 
     show_point_cloud_with_calibration_controls(
         server,
-        first_frame_tensor.to(torch.device(device)),
+        inputs,
         depth_estimator,
         marker_rigid_model,
         marker_dictionary,
-        opencv.aruco.DetectorParameters(),
+        [arudie],
     )
