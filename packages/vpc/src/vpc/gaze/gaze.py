@@ -143,6 +143,7 @@ class Result3d:
 
 class Estimator:
     extractor: mini_face.gaze.Extractor
+    average_direction: bool
     device: torch.device
 
     def __init__(
@@ -154,9 +155,11 @@ class Estimator:
         wild: bool = False,
         multiple_views: bool = False,
         limit_angles: bool = False,
+        average_direction: bool = True,
         device: torch.device | None = None,
     ) -> None:
         self.device = device or torch.device('cpu')
+        self.average_direction = average_direction
 
         match analysis_mode:
             case 'image':
@@ -189,8 +192,16 @@ class Estimator:
                 directions.append(None)
                 continue
 
-            eyes.append(detection.eyes)
-            directions.append(detection.directions)
+            actor_eyes = detection.eyes.mean(axis=0)
+            actor_directions = detection.directions.mean(axis=0)
+
+            if self.average_direction:
+                average_direction = detection.directions[0].mean(axis=0)
+                actor_directions[0, :] = average_direction
+                actor_directions[1, :] = average_direction
+
+            eyes.append(actor_eyes[numpy.newaxis, ...])
+            directions.append(actor_directions[numpy.newaxis, ...])
 
         match (
             imputed_with_zeros_reference(eyes),
