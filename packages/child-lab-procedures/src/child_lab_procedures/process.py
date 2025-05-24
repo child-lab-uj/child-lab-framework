@@ -180,7 +180,7 @@ class Procedure:
 
                 if gazes is not None and unprojected_poses is not None:
                     gazes = [
-                        gaze.align(pose.cpu())
+                        gaze.align(context.calibration, pose.cpu())
                         for gaze, pose in zip(gazes, unprojected_poses)
                     ]
                     logging.debug(f'"{name}" - Gaze corrected')

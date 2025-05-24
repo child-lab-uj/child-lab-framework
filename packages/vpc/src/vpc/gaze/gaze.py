@@ -14,7 +14,8 @@ from video_io.annotation import Color
 from video_io.calibration import Calibration
 from video_io.frame import ArrayRgbFrame, TensorRgbFrame
 
-from .. import face, pose
+from vpc import face, pose
+from vpc.helpers.geometry import rotation_matrix_between_vectors
 
 __all__ = ['Estimator', 'Result', 'Result3d']
 
@@ -71,6 +72,20 @@ class Result:
                 color,
                 thickness,
             )
+            opencv.circle(
+                frame,
+                cast(opencv.typing.Point, actor_starts[0, :2]),
+                3,
+                (0, 0, 255),
+                3,
+            )
+            opencv.circle(
+                frame,
+                cast(opencv.typing.Point, actor_starts[1, :2]),
+                3,
+                (255, 0, 0),
+                3,
+            )
 
         return frame
 
@@ -89,26 +104,55 @@ class Result3d:
     # For numerical stability during transformation of a normalized `directions`
     __STABILIZING_MULTIPLIER: ClassVar[float] = 100.0
 
-    def align(self, poses: pose.Result3d) -> 'Result3d':
-        directions = self.directions.clone()
-        eyes = poses.keypoints[
-            :,
-            [pose.model.YoloKeypoint.LEFT_EYE, pose.model.YoloKeypoint.RIGHT_EYE],
-            :3,
-        ].to(self.device, copy=True)
+    def align(self, calibration: Calibration, poses: pose.Result3d) -> 'Result3d':
+        projected = self.project(calibration)
+        projected_starts = projected.eyes
 
-        # eyes = self.eyes.clone()
-        # gaze_eye_depths = eyes[..., -1].unsqueeze(-1)  # (n_detections, 2, 1)
-        # pose_eye_depths = poses.keypoints[  # (n_detections, 2, 1)
-        #     :,
-        #     [pose.model.YoloKeypoint.LEFT_EYE, pose.model.YoloKeypoint.RIGHT_EYE],
-        #     -1,
-        # ].unsqueeze(-1)
+        fx, fy = calibration.focal_length
+        cx, cy = calibration.optical_center
 
-        # scale = pose_eye_depths / gaze_eye_depths  # (n_detections, 2, 1)
-        # eyes *= scale
+        eye_indices = [
+            pose.model.YoloKeypoint.LEFT_EYE,
+            pose.model.YoloKeypoint.RIGHT_EYE,
+        ]
+        z = poses.keypoints[:, eye_indices, 2]
 
-        return Result3d(eyes, directions, self.device)
+        new_eyes = torch.empty_like(self.eyes)
+        new_eyes[..., 0] = z * (projected_starts[..., 0] - cx) / fx
+        new_eyes[..., 1] = z * (projected_starts[..., 1] - cy) / fy
+        new_eyes[..., 2] = z
+
+        starts = self.eyes
+        directions = self.directions
+
+        new_directions = torch.zeros_like(self.directions)
+
+        for i in range(len(starts)):
+            eye_line = starts[i, 1, :] - starts[i, 0, :]
+            left_eye_direction = directions[i, 0, :]
+            right_eye_direction = directions[i, 1, :]
+
+            left_gaze_rotation = rotation_matrix_between_vectors(
+                eye_line,
+                left_eye_direction,
+            )
+            if left_gaze_rotation is None:
+                continue
+
+            right_gaze_rotation = rotation_matrix_between_vectors(
+                eye_line,
+                right_eye_direction,
+            )
+            if right_gaze_rotation is None:
+                continue
+
+            new_eye_line = new_eyes[i, 1, :] - new_eyes[i, 0, :]
+            new_directions[i, 0, :] = left_gaze_rotation @ new_eye_line
+            new_directions[i, 1, :] = right_gaze_rotation @ new_eye_line
+
+        new_directions /= new_directions.norm(2.0, dim=-1).unsqueeze(-1)
+
+        return Result3d(new_eyes, new_directions, self.device)
 
     def project(self, calibration: Calibration) -> Result:
         cx, cy = calibration.optical_center
@@ -136,7 +180,7 @@ class Result3d:
 
         directions = ends - eyes
         directions_2d = directions[..., :-1]
-        directions_2d = normalized(directions_2d)
+        directions_2d /= directions_2d.norm(p=2, dim=2)
 
         return Result(eyes[..., :-1], directions_2d, self.device)
 
@@ -233,12 +277,6 @@ class Estimator:
         faces: list[face.Result],
     ) -> list[Result3d | None]:
         return list(starmap(self.predict, zip(frames, faces)))
-
-
-def normalized(
-    batched_vectors: Float[torch.Tensor, 'l m n'],
-) -> Float[torch.Tensor, 'l m n']:
-    return batched_vectors / batched_vectors.norm(p=2, dim=2)
 
 
 def imputed_with_zeros_reference[Shape: tuple[int, ...], Type: numpy.generic](
