@@ -35,8 +35,14 @@ from child_lab_cli.workspace.model import Workspace
 @click.option(
     '--marker-size',
     type=float,
-    help='Marker size in centimeters',
+    help='Marker size in meters',
     metavar='<size>',
+)
+@click.option(
+    '--marker-border',
+    type=float,
+    help="Size of the marker's border in meters",
+    metavar='<border>',
 )
 @click.option(
     '--visualize',
@@ -68,6 +74,7 @@ def estimate_transformations(
     video_names: list[str],
     marker_dictionary: str,
     marker_size: float,
+    marker_border: float,
     visualize: bool,
     device: str | None,
     checkpoint: Path | None,
@@ -89,7 +96,7 @@ def estimate_transformations(
     video_io_contexts: list[VideoIoContext] = []
     calibrated_videos = workspace.calibrated_videos()
 
-    rigid_model = MarkerRigidModel(marker_size, 0.0, 0.005)
+    rigid_model = MarkerRigidModel(marker_size, 0.0, marker_border)
 
     for video_name in video_names:
         video = calibrated_videos.find(lambda video: video.name == video_name)
@@ -140,7 +147,7 @@ def estimate_transformations(
     assert dictionary is not None
 
     arudie = Cube[str](
-        marker_size,
+        marker_size + 2 * marker_border,
         # TODO: Read the wall markers from external configuration
         ('marker_42', 'marker_43', 'marker_44', 'marker_45', 'marker_46', 'marker_47'),
     )
