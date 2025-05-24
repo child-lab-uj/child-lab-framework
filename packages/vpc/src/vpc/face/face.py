@@ -43,7 +43,7 @@ class Result:
             for box in self.boxes.cpu().to(torch.int32).tolist():
                 x1, y1, x2, y2 = box
 
-                if x1 <= x2 or y1 <= y2:
+                if x2 <= x1 or y2 <= y1:
                     continue
 
                 if blur:
