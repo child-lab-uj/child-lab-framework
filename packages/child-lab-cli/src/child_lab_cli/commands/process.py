@@ -81,7 +81,7 @@ def process(
     configuration = Configuration(
         torch_device,
         batch_size,
-        max_detections=2,
+        max_detections=1,
         yolo_checkpoint=Path('model/yolov11x-pose.pt'),
         mini_face_models_directory=Path('model/model'),
         face_confidence_threshold=0.5,
