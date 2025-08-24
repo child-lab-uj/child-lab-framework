@@ -33,6 +33,7 @@ workspace = [
     "transformation-buffer",
     "video-io",
     "vpc",
+    "web-camera",
 ]
 
 [tool.uv.workspace]
@@ -54,6 +55,7 @@ marker-detection = { workspace = true }
 transformation-buffer = { workspace = true }
 video-io = { workspace = true }
 vpc = { workspace = true }
+web-camera = { workspace = true }
 
 [tool.ruff]
 exclude = [".venv"]
