@@ -1,0 +1,30 @@
+[project]
+name = "web-camera"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [{ name = "Jan Smółka", email = "jp.smolka@gmail.com" }]
+requires-python = ">=3.12.7"
+dependencies = [
+    "depthai>=3.0.0rc4",
+    "jaxtyping>=0.3.2",
+    "kornia>=0.8.0",
+    "numpy>=1.26.4",
+    "pyserde>=0.23.0",
+    "torch>=2.7.0",
+    "torchvision>=0.22.0",
+    "video-io",
+]
+
+[tool.uv.sources]
+video-io = { workspace = true }
+depthai = { index = "luxonis-depthai" }
+
+[[tool.uv.index]]
+name = "luxonis-depthai"
+url = "https://artifacts.luxonis.com/artifactory/luxonis-python-release-local"
+explicit = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
