@@ -5,6 +5,7 @@ from .commands import (
     estimate_transformations,
     generate_pointcloud,
     process,
+    record,
     tune_calibration,
     video,
     visualize,
@@ -21,6 +22,7 @@ cli.add_command(calibrate_camera)
 cli.add_command(estimate_transformations)
 cli.add_command(generate_pointcloud)
 cli.add_command(process)
+cli.add_command(record)
 cli.add_command(tune_calibration)
 cli.add_command(video)
 cli.add_command(visualize)
