@@ -18,6 +18,7 @@ dev = [
     "pytest-benchmark>=5.1.0",
     "hypothesis>=6.129.3",
     "basedpyright>=1.28.4",
+    "ty>=0.0.1a19",
 ]
 
 workspace = [
@@ -65,6 +66,9 @@ docstring-code-format = true
 
 [tool.ruff.lint]
 ignore = ["F722"] # Makes using jaxtyping possible
+
+[tool.ty.environment]
+root = ["."]
 
 [tool.mypy]
 exclude = [".venv"]
