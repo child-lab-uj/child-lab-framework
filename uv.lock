@@ -265,6 +265,7 @@ source = { editable = "packages/child-lab-procedures" }
 dependencies = [
     { name = "child-lab-data" },
     { name = "jaxtyping" },
+    { name = "kornia" },
     { name = "marker-detection" },
     { name = "numpy" },
     { name = "opencv-python" },
@@ -273,12 +274,14 @@ dependencies = [
     { name = "transformation-buffer" },
     { name = "video-io" },
     { name = "vpc" },
+    { name = "web-camera" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "child-lab-data", editable = "packages/child-lab-data" },
     { name = "jaxtyping", specifier = ">=0.3.0" },
+    { name = "kornia", specifier = ">=0.8.0" },
     { name = "marker-detection", editable = "packages/marker-detection" },
     { name = "numpy", specifier = ">=1.26.4" },
     { name = "opencv-python", specifier = ">=4.11.0.86" },
@@ -287,6 +290,7 @@ requires-dist = [
     { name = "transformation-buffer", editable = "packages/transformation-buffer" },
     { name = "video-io", editable = "packages/video-io" },
     { name = "vpc", editable = "packages/vpc" },
+    { name = "web-camera", editable = "packages/web-camera" },
 ]
 
 [[package]]
